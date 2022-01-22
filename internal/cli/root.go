@@ -1,29 +1,35 @@
 package cli
 
 import (
-   "os"
-   "github.com/mkideal/cli"
-   
-   "github.com/antony-jr/ham/internal/cmd/initialize"
+	"github.com/mkideal/cli"
+	"os"
+
+	"github.com/antony-jr/ham/internal/cmd/initialize"
 )
 
 type rootT struct {
-   cli.Helper
+	cli.Helper
+	Version bool `cli:"v,version" usage:"show version information"`
 }
 
 func Run() error {
-   var root = &cli.Command {
-      Name: "Hetzner Android Make (HAM)",
-      Desc: "Build Android ROMs from Source with ease using Hetzner Cloud.",
-      Argv: func() interface{} { return new(rootT) },
-      Fn: func(ctx *cli.Context) error {
-	 //argv := ctx.Argv().(*rootT)
-	 return nil
-      },
-   }
+	var root = &cli.Command{
+		Name: "Hetzner Android Make (HAM)",
+		Argv: func() interface{} { return new(rootT) },
+		Fn: func(ctx *cli.Context) error {
+			argv := ctx.Argv().(*rootT)
+			if argv.Version {
+				return nil
+			}
+			return nil
+		},
+	}
 
-   return cli.Root(
-      root,
-      cli.Tree(initialize.NewCommand()),
-   ).Run(os.Args[1:])
+	var help = cli.HelpCommand("Show help")
+
+	return cli.Root(
+		root,
+		cli.Tree(help),
+		cli.Tree(initialize.NewCommand()),
+	).Run(os.Args[1:])
 }

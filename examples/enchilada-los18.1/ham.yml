@@ -1,0 +1,14 @@
+args:
+  - id: android-certs
+    name: "Android Cert Files"
+    desc: "Your signing android cert files zipped and unencrypted"
+    type: file
+
+bulid:
+  - mkdir lineage 
+  - cd lineage
+  - repo init
+
+output:
+  - source: linage/*zip
+  - source: lineage/out/boot.img

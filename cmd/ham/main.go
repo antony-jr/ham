@@ -1,16 +1,29 @@
 package main
 
 import (
-   "os"
-  
-   "github.com/antony-jr/ham/internal/banner"
-   "github.com/antony-jr/ham/internal/cli"
+	"fmt"
+	"os"
 
+	"github.com/antony-jr/ham/internal/banner"
+	"github.com/antony-jr/ham/internal/cli"
 )
 
+/*
+ * Inject in build with,
+ * -ldflags "-X main.AppVersion=$VERSION"
+ */
+var AppVersion = "Unknown"
+var GitCommit = "Unknown"
+
 func main() {
-   banner.Header("v0.0.1-alpha")
-   if cli.Run() != nil {
-	os.Exit(1)
-   }
+	banner.Header(AppVersion, GitCommit)
+	if err := cli.Run(); err != nil {
+		banner.Error(fmt.Sprint(err))
+		os.Exit(1)
+	}
+
+	if len(os.Args) == 1 {
+		// Show usage help.
+		banner.Usage()
+	}
 }
