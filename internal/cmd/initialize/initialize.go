@@ -1,6 +1,7 @@
 package initialize
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/antony-jr/ham/internal/banner"
+	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/mkideal/cli"
 )
 
@@ -43,15 +45,6 @@ func NewCommand() *cli.Command {
 				return errors.New("Failed to Get Config File Path")
 			}
 
-			exists, err := fileExists(configFilePath)
-			if err != nil {
-				return err
-			}
-
-			if exists && !argv.Force {
-				return errors.New("Configuration Already Exists, Run with -f flag.")
-			}
-
 			if len(argv.APIKey) < 10 {
 				return errors.New("Invalid API Key")
 			}
@@ -68,9 +61,12 @@ func NewCommand() *cli.Command {
 
 			privateKeyBytes := encodePrivateKeyToPEM(privateKey)
 
+			pks := string(publicKey[:])
+			pks = fmt.Sprint(pks[:len(pks)-2])
+
 			config := Configuration{
 				argv.APIKey,
-				fmt.Sprintf("%s ham@antonyjr.in\n", string(publicKey[:len(publicKey)-2])),
+				fmt.Sprintf("%s= ham@antonyjr.in\n", pks),
 				string(privateKeyBytes[:]),
 			}
 
@@ -79,7 +75,79 @@ func NewCommand() *cli.Command {
 				return errors.New("JSON Encoding Failed")
 			}
 
+			// Add the new sshkey and check connection with the API Key
+			client := hcloud.NewClient(hcloud.WithToken(config.APIKey))
+
+			/*
+				pk, _, _, _, err := ssh.ParseAuthorizedKey(
+				   []byte(config.SSHPublicKey),
+				)
+				if err != nil {
+				   return err
+				}
+
+				fingerprint := ssh.FingerprintSHA256(pk)
+			*/
+
+			sshkeys, err := client.SSHKey.All(
+				context.Background(),
+			)
+			if err != nil {
+				return err
+			}
+
+			// Search for ham-ssh-key SSH Key,
+			// if found then delete it if the user
+			// forces it.
+			keyExists := false
+			for _, el := range sshkeys {
+				if el.Name == "ham-ssh-key" {
+					keyExists = true
+					break
+				}
+			}
+
+			if keyExists {
+				if !argv.Force {
+					return errors.New("SSH Key Already Exists at Server, Run with -f flag.")
+				}
+
+				// Delete the existing key first then add our new one.
+				_, err := client.SSHKey.Delete(
+					context.Background(),
+					sshkeys[0],
+				)
+				if err != nil {
+					return err
+				}
+			}
+
+			labels := make(map[string]string)
+
+			// Add the new key now
+			_, _, err = client.SSHKey.Create(
+				context.Background(),
+				hcloud.SSHKeyCreateOpts{
+					"ham-ssh-key",
+					config.SSHPublicKey,
+					labels,
+				},
+			)
+
+			if err != nil {
+				return err
+			}
+
 			// Create Configuration File
+			exists, err := fileExists(configFilePath)
+			if err != nil {
+				return err
+			}
+
+			if exists && !argv.Force {
+				return errors.New("Configuration Already Exists, Run with -f flag.")
+			}
+
 			file, err := os.Create(configFilePath)
 			if err != nil {
 				return errors.New("Cannot Write Configuration File")
