@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/antony-jr/ham/internal/cmd/initialize"
+	"github.com/antony-jr/ham/internal/cmd/build"
 )
 
 type rootT struct {
@@ -31,5 +32,6 @@ func Run() error {
 		root,
 		cli.Tree(help),
 		cli.Tree(initialize.NewCommand()),
+		cli.Tree(build.NewCommand()),
 	).Run(os.Args[1:])
 }

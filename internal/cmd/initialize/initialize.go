@@ -2,10 +2,8 @@ package initialize
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 
 	"crypto/rand"
 	"crypto/rsa"
@@ -14,15 +12,11 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/antony-jr/ham/internal/banner"
+	"github.com/antony-jr/ham/internal/core"
+	"github.com/antony-jr/ham/internal/helpers"
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/mkideal/cli"
 )
-
-type Configuration struct {
-	APIKey        string
-	SSHPublicKey  string
-	SSHPrivateKey string
-}
 
 type initT struct {
 	cli.Helper
@@ -40,7 +34,7 @@ func NewCommand() *cli.Command {
 
 			banner.InitStartBanner()
 
-			configFilePath, err := getConfigFilePath()
+			configFilePath, err := helpers.ConfigFilePath()
 			if err != nil {
 				return errors.New("Failed to Get Config File Path")
 			}
@@ -64,30 +58,14 @@ func NewCommand() *cli.Command {
 			pks := string(publicKey[:])
 			pks = fmt.Sprint(pks[:len(pks)-2])
 
-			config := Configuration{
+			config := core.NewConfiguration(
 				argv.APIKey,
 				fmt.Sprintf("%s= ham@antonyjr.in\n", pks),
 				string(privateKeyBytes[:]),
-			}
-
-			json, err := json.Marshal(config)
-			if err != nil {
-				return errors.New("JSON Encoding Failed")
-			}
+			)
 
 			// Add the new sshkey and check connection with the API Key
 			client := hcloud.NewClient(hcloud.WithToken(config.APIKey))
-
-			/*
-				pk, _, _, _, err := ssh.ParseAuthorizedKey(
-				   []byte(config.SSHPublicKey),
-				)
-				if err != nil {
-				   return err
-				}
-
-				fingerprint := ssh.FingerprintSHA256(pk)
-			*/
 
 			sshkeys, err := client.SSHKey.All(
 				context.Background(),
@@ -139,7 +117,7 @@ func NewCommand() *cli.Command {
 			}
 
 			// Create Configuration File
-			exists, err := fileExists(configFilePath)
+			exists, err := helpers.FileExists(configFilePath)
 			if err != nil {
 				return err
 			}
@@ -148,39 +126,15 @@ func NewCommand() *cli.Command {
 				return errors.New("Configuration Already Exists, Run with -f flag.")
 			}
 
-			file, err := os.Create(configFilePath)
+			err = core.WriteConfiguration(config)
 			if err != nil {
 				return errors.New("Cannot Write Configuration File")
-			} else {
-				file.Write(json)
-				file.Close()
 			}
 
 			banner.InitFinishBanner()
 			return nil
 		},
 	}
-}
-
-func fileExists(FilePath string) (bool, error) {
-	if _, err := os.Stat(FilePath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
-		} else {
-			return false, err
-		}
-	}
-
-	return true, nil
-}
-
-func getConfigFilePath() (string, error) {
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%s%c.ham.json", homedir, os.PathSeparator), nil
 }
 
 func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {

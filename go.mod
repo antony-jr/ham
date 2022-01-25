@@ -3,17 +3,21 @@ module github.com/antony-jr/ham
 go 1.17
 
 require (
+	github.com/creack/pty v1.1.17
 	github.com/fatih/color v1.13.0
 	github.com/hetznercloud/hcloud-go v1.33.1
 	github.com/kyokomi/emoji/v2 v2.2.8
 	github.com/mkideal/cli v0.2.7
+	github.com/sevlyar/go-daemon v0.1.5
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 )
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
+	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
