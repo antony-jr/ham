@@ -24,7 +24,7 @@ type HAMFile struct {
 
 	Build []struct {
 		Title string `yaml:"title"`
-		Cmd   string `yaml:"cmd"`
+		Cmd   string `yaml:"run"`
 	}
 
 	Output []struct {

@@ -188,7 +188,7 @@ func handleRequest(state *statusT, conn net.Conn) {
 		resp = fmt.Sprintf("{ error: false, status: \"%s\", progress: \"%s\" }\n", state.Status, state.Title)
 	} else if request == "quit" {
 		resp = fmt.Sprintf("{ error: false, status: \"Stopping\", progress: \"Stopping\"}\n")
-		os.Exit(0)
+		defer os.Exit(0)
 	} else {
 		resp = fmt.Sprintf("{ error: true, message: \"Unknown command\" }\n")
 	}

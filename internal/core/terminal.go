@@ -42,7 +42,9 @@ func NewTerminal(UniqueID string) (Terminal, error) {
 
 	t.term.Write([]byte("set -e \n"))
 	t.term.Write([]byte("export HAM_CMD_INDEX=0 \n"))
-	t.term.Write([]byte(fmt.Sprintf("trap \"echo $HAM_CMD_INDEX' failed' > /tmp/%s.ham.command.status\" ERR \n", UniqueID)))
+	// t.term.Write([]byte(fmt.Sprintf("trap \"echo $HAM_CMD_INDEX' failed' > /tmp/%s.ham.command.status\" ERR \n", UniqueID)))
+	t.term.Write([]byte(fmt.Sprintf("trap \"env | grep HAM_CMD_INDEX | cut -d'=' -f2 | sed 's/$/ failed/'|cat > /tmp/%s.ham.command.status\" ERR \n", UniqueID)))
+	t.term.Write([]byte(fmt.Sprintf("trap \"env | grep HAM_CMD_INDEX | cut -d'=' -f2 | sed 's/$/ failed/'|cat > /tmp/%s.ham.command.status\" EXIT \n", UniqueID)))
 
 	return t, nil
 }

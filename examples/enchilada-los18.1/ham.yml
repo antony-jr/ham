@@ -9,11 +9,11 @@ args:
 
 build:
   - title: "Making Directory"
-    cmd: mkdir lineage
+    run: mkdir lineage || true
   - title: "Change Directory"
-    cmd: cd lineage
+    run: cd lineage
   - title: "Echoing file"
-    cmd: echo 'Hello World' > test.txt
+    run: echo 'Hello World' > test.txt
 
 output:
   - source: linage/*zip
