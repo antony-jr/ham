@@ -97,6 +97,26 @@ func (Term *Terminal) ExecTerminal(Index int, Command string) error {
 
 	Term.term.Write([]byte(fmt.Sprintf("export HAM_CMD_INDEX=%d \n", Index)))
 	Term.term.Write([]byte(fmt.Sprintf("%s\n", Command)))
+
+	time.Sleep(1 * time.Second)
+	status, err = ioutil.ReadFile(fmt.Sprintf("/tmp/%s.ham.command.status", Term.uid))
+	if err != nil {
+		return err
+	}
+
+	parts = strings.Split(string(status[:]), " ")
+	idx, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return err
+	}
+	wStatus := parts[1]
+
+	if idx == Index {
+		if strings.Contains(wStatus, "failed") {
+			return errors.New("Command Failed")
+		}
+	} 
+
 	Term.term.Write([]byte(fmt.Sprintf("echo $HAM_CMD_INDEX' success' > /tmp/%s.ham.command.status\n", Term.uid)))
 
 	return nil

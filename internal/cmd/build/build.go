@@ -53,15 +53,12 @@ func NewCommand() *cli.Command {
 				return errors.New("SHA256 Mismatch, Bad File.")
 			}
 
-			serverName := fmt.Sprintf("build-%s", hf.SHA256Sum)
-			hostname, err := os.Hostname()
-			if err != nil {
-				return err
-			}
-			if serverName != hostname {
-				fmt.Println(hostname)
-				return errors.New("Invalid Hostname for Build Server.")
-			}
+			//serverName := fmt.Sprintf("build-%s", hf.SHA256Sum)
+
+			// We assume the current server name at hetzner to
+			// be this and we use this assumption to destroy
+			// the server when the build is done.
+
 
 			dctx := &daemon.Context{
 				PidFileName: "/tmp/com.github.antony-jr.ham.pid",

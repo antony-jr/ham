@@ -13,7 +13,7 @@ build:
   - title: "Change Directory"
     cmd: cd lineage
   - title: "Echoing file"
-    cmd: echo 'Hello World'>test.txt
+    cmd: echo 'Hello World' > test.txt
 
 output:
   - source: linage/*zip
