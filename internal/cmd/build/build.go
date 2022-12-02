@@ -27,12 +27,13 @@ type statusT struct {
 	Status string
 	Title  string
 	Error  error
+	Percentage int
 }
 
 func NewCommand() *cli.Command {
 	return &cli.Command{
 		Name: "build",
-		Desc: "Build ASOP from source from a recipe and given build vars. (*Run in Build Machine)",
+		Desc: "Build ASOP from source from a recipe and given build vars. (*Run in Build Machine) (Private)",
 		Argv: func() interface{} { return new(buildT) },
 		Fn: func(ctx *cli.Context) error {
 			argv := ctx.Argv().(*buildT)
@@ -100,6 +101,7 @@ func NewCommand() *cli.Command {
 				"Running",
 				"",
 				nil,
+				0,
 			}
 
 			go statusServer(&status)
@@ -110,6 +112,7 @@ func NewCommand() *cli.Command {
 			}
 			defer terminal.CloseTerminal()
 
+			buildLen := len(hf.Build)
 			for index, el := range hf.Build {
 				status.Status = "Building"
 				status.Title = el.Title
@@ -126,8 +129,10 @@ func NewCommand() *cli.Command {
 				if err != nil {
 					return err
 				}
+				status.Percentage = int((float32(index)/float32(buildLen)) * 100.00)
 			}
 
+			status.Percentage = 100
 			status.Status = "Finished"
 			status.Title = "Build Finished"
 			fmt.Println("Built Successfully.")
@@ -204,10 +209,15 @@ func handleRequest(state *statusT, conn net.Conn) {
 
 	request := strings.ToLower(string(buf[:rLen]))
 	var resp string
-	if request == "status" {
-		resp = fmt.Sprintf("{ error: false, status: \"%s\", progress: \"%s\" }\n", state.Status, state.Title)
+	if state.Error != nil {
+	   resp = fmt.Sprintf("{ error: true, message: \"%s\" }\n", 
+	   		       state.Error)	
+	} else if request == "status" {
+	   resp = fmt.Sprintf("{ error: false, status: \"%s\", progress: \"%s\", percentage: %d }\n", 
+	   		       state.Status, state.Title, state.Percentage)
 	} else if request == "quit" {
-		resp = fmt.Sprintf("{ error: false, status: \"Stopping\", progress: \"Stopping\"}\n")
+	   resp = fmt.Sprintf("{ error: false, status: \"Stopping\", progress: \"Stopping\", percentage: %d }\n",
+			      state.Percentage)
 		defer os.Exit(0)
 	} else {
 		resp = fmt.Sprintf("{ error: true, message: \"Unknown command\" }\n")

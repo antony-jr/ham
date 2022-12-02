@@ -13,6 +13,8 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/antony-jr/ham/internal/banner"
 	"github.com/antony-jr/ham/internal/core"
 	"github.com/antony-jr/ham/internal/helpers"
@@ -21,6 +23,7 @@ import (
 
 type getT struct {
 	cli.Helper
+	Force  bool   `cli:"f,force" usage:"Force start a build even if the recipe was built Already."`
 }
 
 func ParseGitRemoteString(remote string) (string, string) {
@@ -101,6 +104,7 @@ Local Recipe:
 		   return true
 		},
 		Fn: func(ctx *cli.Context) error {
+		   	argv := ctx.Argv().(*getT)
 			args := ctx.Args()
 			if len(args) != 1 {
 			   return nil
@@ -108,8 +112,11 @@ Local Recipe:
 			recipe_src := args[0]
 			dir := recipe_src
 
+			checkMark := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
+
 			banner.GetStartBanner()
-			fmt.Println("Recipe: ", recipe_src)
+			
+			fmt.Printf(" %s Parsing %s...\n", checkMark, recipe_src)
 			remove := false
 			if _, err := os.Stat(recipe_src); os.IsNotExist(err) {
 			   // Recipe is not local, so use git to clone the 
@@ -124,8 +131,8 @@ Local Recipe:
 			      git_branch = "default"
 			   }
 
-			   fmt.Println("Git URL: ", git_url)
-			   fmt.Println("Git Branch: ", git_branch) 
+			   fmt.Printf(" %s Git URL: %s\n", checkMark, git_url)
+			   fmt.Printf(" %s Git Branch: %s\n", checkMark, git_branch) 
 			   
 
 			   uniqueTempDir, err := os.MkdirTemp(os.TempDir(), "*-ham-recipe")
@@ -135,7 +142,7 @@ Local Recipe:
 			   dir = uniqueTempDir
 			   remove = true
 
-			   fmt.Println("Cloning Into: ", dir)
+			   fmt.Printf(" %s Cloning Into: %s\n", checkMark, dir)
 
 			   r, err := git.PlainClone(dir, false, &git.CloneOptions{
 			      URL: git_url,
@@ -169,8 +176,12 @@ Local Recipe:
 			if err != nil {
 			   return err
 			}
+			fmt.Printf(" %s Reading Configuration\n", checkMark)
+
 
 			client := hcloud.NewClient(hcloud.WithToken(config.APIKey))
+			fmt.Printf(" %s Connected with Hetzner Cloud API\n", checkMark)
+
 
 			sshkeys, err := client.SSHKey.All(
 				context.Background(),
@@ -191,11 +202,14 @@ Local Recipe:
 			   return err
 			}
 
+			var ham_labels map[string]string
+
 			for _, el := range sshkeys {
 				if el.Name == "ham-ssh-key" {
 				   	// fmt.Println("Hetzner Key Fingerprint: ", el.Fingerprint)
 				        if keyFingerprint == el.Fingerprint {
 					   keyOk = true
+					   ham_labels = el.Labels
 					}	
 					break
 				}
@@ -204,6 +218,8 @@ Local Recipe:
 			if !keyOk {
 			   return errors.New("HAM SSH Key not found, Please Re-Initialize.")
 			}
+
+			fmt.Printf(" %s Verified SSH Keys\n", checkMark)
 
 
 			// Destroy all dead servers 
@@ -235,10 +251,27 @@ Local Recipe:
 			for _, server := range servers {
 			   if server.Name == serverName {
 			      // Track status instead of creating a new one.
-
+			      fmt.Printf(" %s Active Build Found\n", checkMark)
+			      fmt.Printf(" %s Started Progress on Active Build\n", checkMark)
 			      return nil
 			   }
 			}
+
+			// Check the ham-ssh-key labels, label with the server
+			// name will have the last build status like success
+			// or failed.
+			for key, status := range ham_labels {
+			   if key == serverName && !argv.Force {
+			      // Confirm with user before starting the 
+			      // build again.
+			      estr := fmt.Sprintf("A %s build had run before with this recipe, Run with -f flag to force build.",
+			      			  status)
+			      return errors.New(estr)
+			   }
+			   break
+			}
+			fmt.Printf(" %s Checked Previous Builds\n", checkMark)
+			fmt.Println()
 
 			// Create a new build server.
 
@@ -247,6 +280,7 @@ Local Recipe:
 			// build from the user. This might be crucial secrets
 			// so transport it with SSH to stay secure.
 
+			runTeaProgram()
 			return nil
 		},
 	}
