@@ -6,7 +6,7 @@ require (
 	github.com/creack/pty v1.1.17
 	github.com/fatih/color v1.13.0
 	github.com/go-git/go-git/v5 v5.4.2
-	github.com/hetznercloud/hcloud-go v1.33.1
+	github.com/hetznercloud/hcloud-go v1.37.0
 	github.com/kyokomi/emoji/v2 v2.2.8
 	github.com/mkideal/cli v0.2.7
 	github.com/sevlyar/go-daemon v0.1.5
@@ -43,6 +43,7 @@ require (
 	golang.org/x/net v0.0.0-20210326060303-6b1517762897 // indirect
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
+	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/protobuf v1.26.0-rc.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )

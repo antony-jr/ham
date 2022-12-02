@@ -19,6 +19,7 @@ type HAMFile struct {
 		ID   string `yaml:"id"`
 		Name string `yaml:"name"`
 		Desc string `yaml:"desc"`
+		Prompt string `yaml:"prompt",omitempty`
 		Type string `yaml:"type"`
 	}
 
@@ -27,9 +28,7 @@ type HAMFile struct {
 		Cmd   string `yaml:"run"`
 	}
 
-	Output []struct {
-		Source string `yaml:"source"`
-	}
+	PostBuild []string `yaml:"post_build"`
 }
 
 func NewHAMFile(RecipePath string) (HAMFile, error) {

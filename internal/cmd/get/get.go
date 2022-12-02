@@ -3,13 +3,20 @@ package get
 import (
    	"os"
 	"fmt"
+	"context"
+	"errors"
 	"strings"
 
 	"github.com/mkideal/cli"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 
-	"github.com/antony-jr/ham/internal/banner"	
+	"golang.org/x/crypto/ssh"
+
+	"github.com/antony-jr/ham/internal/banner"
+	"github.com/antony-jr/ham/internal/core"
+	"github.com/antony-jr/ham/internal/helpers"
+	"github.com/hetznercloud/hcloud-go/hcloud"
 )
 
 type getT struct {
@@ -154,14 +161,104 @@ Local Recipe:
 			   }
 			}
 
-
 			if remove {
-			    err := os.RemoveAll(dir)
-			    if err != nil {
-			       return err
-			    }
+			    defer os.RemoveAll(dir)
 			}
+
+			config, err := core.GetConfiguration()
+			if err != nil {
+			   return err
+			}
+
+			client := hcloud.NewClient(hcloud.WithToken(config.APIKey))
+
+			sshkeys, err := client.SSHKey.All(
+				context.Background(),
+			)
+			if err != nil {
+				return err
+			}
+
+			// Search for ham-ssh-key SSH Key,
+			// if it does not exists then error out
+			// asking the user to properly init.
+			keyOk := false
+			keyFingerprint, err := sshFingerprint(config.SSHPublicKey)
+
+			// fmt.Println("SSH Key Fingerprint: ", keyFingerprint)
+
+			if err != nil {
+			   return err
+			}
+
+			for _, el := range sshkeys {
+				if el.Name == "ham-ssh-key" {
+				   	// fmt.Println("Hetzner Key Fingerprint: ", el.Fingerprint)
+				        if keyFingerprint == el.Fingerprint {
+					   keyOk = true
+					}	
+					break
+				}
+			}
+
+			if !keyOk {
+			   return errors.New("HAM SSH Key not found, Please Re-Initialize.")
+			}
+
+
+			// Destroy all dead servers 
+			// whenver we see them.
+			// This is highly unlikely that our ham leaves dead servers
+			// but this is just a precaution.
+			err = helpers.DestroyAllDeadServers(&client.Server)
+			if err != nil {
+			   return err
+			}
+
+			// Parse recipe file for meta information 
+			// and args information.
+			hf, err := core.NewHAMFile(dir)
+			if err != nil {
+				return err
+			}
+			serverName := helpers.ServerNameFromSHA256(hf.SHA256Sum)
+
+			// Search for build servers that were already started
+			// if found, track that.
+			servers, err := client.Server.All(
+			   context.Background(),
+			)
+			if err != nil {
+			   return err
+			}
+
+			for _, server := range servers {
+			   if server.Name == serverName {
+			      // Track status instead of creating a new one.
+
+			      return nil
+			   }
+			}
+
+			// Create a new build server.
+
+			// Before that we need to get variables from the user
+			// such as special files, env vars required for the 
+			// build from the user. This might be crucial secrets
+			// so transport it with SSH to stay secure.
+
 			return nil
 		},
 	}
+}
+
+func sshFingerprint(pubkey string) (string, error) {
+   pubKeyBytes := []byte(pubkey)
+
+   pk, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyBytes)
+   if err != nil {
+      return "", err
+   }
+
+   return ssh.FingerprintLegacyMD5(pk), nil
 }

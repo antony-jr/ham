@@ -10,6 +10,8 @@ import (
 
 	"github.com/antony-jr/ham/internal/banner"
 	"github.com/antony-jr/ham/internal/core"
+	"github.com/antony-jr/ham/internal/helpers"
+
 	"github.com/mkideal/cli"
 	"github.com/sevlyar/go-daemon"
 )
@@ -53,12 +55,12 @@ func NewCommand() *cli.Command {
 				return errors.New("SHA256 Mismatch, Bad File.")
 			}
 
-			//serverName := fmt.Sprintf("build-%s", hf.SHA256Sum)
 
 			// We assume the current server name at hetzner to
 			// be this and we use this assumption to destroy
 			// the server when the build is done.
-
+			serverName := helpers.ServerNameFromSHA256(hf.SHA256Sum)
+			fmt.Printf("Build Server: %s\n", serverName)
 
 			dctx := &daemon.Context{
 				PidFileName: "/tmp/com.github.antony-jr.ham.pid",
@@ -126,33 +128,51 @@ func NewCommand() *cli.Command {
 				}
 			}
 
-			status.Status = "Uploading"
-			status.Title = "Build Finished, Uploading Assets"
+			status.Status = "Finished"
+			status.Title = "Build Finished"
 			fmt.Println("Built Successfully.")
+			fmt.Println("Running Post Build Script... ")
 
-			// After build completes.
-			// Upload the outputs to a very cheap server
-			// by Hetzner, and name is serve
-			// This reduces cost a lot
+			status.Status = "Post Build"
+			status.Title = "Running Post Build"
 
-			// The serve server will have the name
-			// assets-<sha256 sum of yaml>
-			// The get command should detect this new server
-			// and serve the user that and delete the cheap
-			// server and complete the build entirely.
+			pbTerminal, err := core.NewTerminal(hf.SHA256Sum + "-postbuild")
+			if err != nil {
+			   return err
+			}
+			defer pbTerminal.CloseTerminal()
+
+			for index, cmd := range hf.PostBuild {
+			   	err := pbTerminal.ExecTerminal(index, cmd)
+				if err != nil {
+				   return err
+				}
+
+				err = pbTerminal.WaitTerminal(index)
+				if err != nil { 
+				   return err
+				}
+			}
 
 			// We need to destroy this current expensive server
 			// at the end.
 			// The current server should be named
-			// build-<sha256 sum of yaml>
-
+			// build-<short sha256 sum of yaml>
+			// Note: This should be handled by the destroyCurrentServer
+			// defer function.
+			// 
+			// IMPORTANT: We need to take more precautions to verify if 
+			// the expensive server is destroyed after the post build is
+			// finished. We also need to destroy the server after some
+			// specific time limit. Maybe 24 hours if something got stuck,
+			// this way there is no financial burden on the user hopefully.
 			return nil
 		},
 	}
 }
 
 func destroyCurrentServer(UniqueID string) {
-	serverName := fmt.Sprintf("build-%s", UniqueID)
+	serverName := helpers.ServerNameFromSHA256(UniqueID)
 	fmt.Println("Destroying ", serverName)
 }
 

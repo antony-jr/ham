@@ -15,6 +15,6 @@ build:
   - title: "Echoing file"
     run: echo 'Hello World' > test.txt
 
-output:
-  - source: linage/*zip
-  - source: lineage/out/boot.img
+post_build:
+  - echo "Finished" > lineage/build.txt
+  # Upload your files here.
