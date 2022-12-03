@@ -2,9 +2,9 @@ package build
 
 import (
 	"fmt"
+	"github.com/mkideal/cli"
 	"net"
 	"time"
-	"github.com/mkideal/cli"
 )
 
 type buildStatusT struct {
@@ -23,24 +23,24 @@ func NewStatusCommand() *cli.Command {
 
 			conn, err := net.Dial("tcp", "127.0.0.1:1695")
 			if err != nil {
-			   return err
+				return err
 			}
 
 			err = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 			if err != nil {
-			   return err
+				return err
 			}
 
 			// Request Status from Server
 			_, err = conn.Write([]byte("status"))
 			if err != nil {
-			   return err
+				return err
 			}
 
 			recvBuf := make([]byte, 1024)
 			_, err = conn.Read(recvBuf[:])
 			if err != nil {
-			   return err
+				return err
 			}
 
 			fmt.Println("Status: ", string(recvBuf))
@@ -48,4 +48,3 @@ func NewStatusCommand() *cli.Command {
 		},
 	}
 }
-	

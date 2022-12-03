@@ -4,9 +4,9 @@ import (
 	"github.com/mkideal/cli"
 	"os"
 
-	"github.com/antony-jr/ham/internal/cmd/initialize"
 	"github.com/antony-jr/ham/internal/cmd/build"
 	"github.com/antony-jr/ham/internal/cmd/get"
+	"github.com/antony-jr/ham/internal/cmd/initialize"
 )
 
 type rootT struct {

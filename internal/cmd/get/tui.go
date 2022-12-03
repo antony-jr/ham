@@ -1,41 +1,43 @@
 package get
 
 import (
-   "fmt"
-   "strings"
-   "time"
+	"fmt"
+	"strings"
+	"time"
 
-   "encoding/json"
-   
-   "github.com/charmbracelet/bubbles/progress"
-   "github.com/charmbracelet/bubbles/spinner"
-   tea "github.com/charmbracelet/bubbletea"
-   "github.com/charmbracelet/lipgloss"
+	"encoding/json"
+
+	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/bubbles/spinner"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/kyokomi/emoji/v2"
 )
 
 type ProgressT struct {
-    error  bool `json:"error"`
-    status string `json:"status"`
-    progress string `json:"progress"`
-    percentage int `json:"percentage"`
-    message string `json:"message"`
+	error      bool   `json:"error"`
+	status     string `json:"status"`
+	progress   string `json:"progress"`
+	percentage int    `json:"percentage"`
+	message    string `json:"message"`
 }
 
 type model struct {
-   	shell *SSHShellContext
-   	percentage int
-	prog     string
-	width    int
-	height   int
-	spinner  spinner.Model
-	progress progress.Model
-	done     bool
+	shell      *SSHShellContext
+	percentage int
+	prog       string
+	width      int
+	height     int
+	spinner    spinner.Model
+	progress   progress.Model
+	done       bool
 }
 
 var (
-	currentStatusStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("211"))
-	doneStyle           = lipgloss.NewStyle().Margin(1, 2)
-	checkMark           = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
+	currentStatusStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("211"))
+	doneStyle          = lipgloss.NewStyle().Margin(1, 2)
+	checkMark          = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
+	crossMark          = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).SetString(emoji.Sprintf(":prohibited:"))
 )
 
 func newModel(shell *SSHShellContext) model {
@@ -45,12 +47,13 @@ func newModel(shell *SSHShellContext) model {
 	)
 	s := spinner.New()
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
+	s.Spinner = spinner.Points
 	return model{
-	   	shell: shell,
-	        percentage: 0,
-	        prog: "Building",
-		spinner:  s,
-		progress: p,
+		shell:      shell,
+		percentage: 0,
+		prog:       "Building",
+		spinner:    s,
+		progress:   p,
 	}
 }
 
@@ -68,15 +71,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+	case errorCode:
+		return m, tea.Quit
+
 	case statusJson:
-	   	raw_json := []byte(statusJson(msg))
+		raw_json := []byte(statusJson(msg))
 		var state ProgressT
+
 		err := json.Unmarshal(raw_json, &state)
 		if err != nil {
-		   return m, tea.Batch(
-		      tea.Printf(" Cannot Get Progress"),
-		      tea.Quit,
-		   )
+			return m, tea.Batch(
+				tea.Printf(" %sCannot Get Progress from Remote.\n", crossMark),
+				withErrorQuit(m.shell, SSH_SHELL_MALFORMED_JSON),
+			)
+		}
+
+		if state.error {
+			return m, tea.Batch(
+				tea.Printf(" %s%s", state.message, crossMark),
+				tea.Printf(" %sBuild Failed.\n", crossMark),
+				withErrorQuit(m.shell, SSH_SHELL_HAM_STATUS_ERRORED),
+			)
 		}
 
 		m.prog = state.progress
@@ -85,14 +100,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.percentage == 100 {
 			// Everything's been installed. We're done!
 			m.done = true
-			return m, tea.Quit
+			return m, tea.Batch(tea.Printf(" %s", raw_json))
 		}
 
 		// Update progress bar
 		progressCmd := m.progress.SetPercent(float64(m.percentage))
 
 		return m, tea.Batch(
-		 	progressCmd,
+			progressCmd,
 			tea.Printf(" %s %s", checkMark, m.prog),
 			refreshProgress(m.shell),
 		)
@@ -134,15 +149,29 @@ func (m model) View() string {
 }
 
 type statusJson string
+type errorCode SSHShellCode
+
+func withErrorQuit(shell *SSHShellContext, code SSHShellCode) tea.Cmd {
+	d := time.Second * time.Duration(5)
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		shell.SetCode(code)
+		return errorCode(code)
+	})
+}
 
 func refreshProgress(shell *SSHShellContext) tea.Cmd {
-        d := time.Millisecond * time.Duration(5)
+	d := time.Second * time.Duration(5)
 	return tea.Tick(d, func(t time.Time) tea.Msg {
-	   out, err := shell.Exec("ham build-status | cat |  grep -a Status | cut -c 10-")
-	   if err != nil {
-	      return statusJson("{error: true, message: \"Cannot SSH\"}")
-	   }
-	   return statusJson(out)
+		out, err := shell.Exec("ham build-status | cat |  grep -a Status | cut -c 10-")
+		if err != nil {
+			shell.SetCode(SSH_SHELL_CANNOT_CONNECT)
+			return errorCode(SSH_SHELL_CANNOT_CONNECT)
+		}
+
+		if len(out) == 0 {
+			return statusJson("{error: true, message: \"Remote Server not Responding Build Status\"}")
+		}
+		return statusJson(out)
 	})
 }
 
@@ -154,9 +183,9 @@ func max(a, b int) int {
 }
 
 func runProgressTeaProgram(shell *SSHShellContext) error {
-   if _, err := tea.NewProgram(newModel(shell)).Run(); err != nil {
-      return err
-   }
+	if _, err := tea.NewProgram(newModel(shell)).Run(); err != nil {
+		return err
+	}
 
-   return nil
+	return nil
 }

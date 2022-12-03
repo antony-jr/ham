@@ -1,15 +1,16 @@
 package get
 
 import (
-   	"os"
-	"fmt"
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"strings"
+	"time"
 
-	"github.com/mkideal/cli"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/mkideal/cli"
 
 	"golang.org/x/crypto/ssh"
 
@@ -23,67 +24,72 @@ import (
 
 type getT struct {
 	cli.Helper
-	Force  bool   `cli:"f,force" usage:"Force start a build even if the recipe was built Already."`
+
+	NoConfirm               bool `cli:"n,no-confirm" usage:"Auto Confirm 'Yes' to all questions for the user. (Use with Caution)"`
+	KeepServerOnConnectFail bool `cli:"s,keep-server-conn-fail" usage:"Don't Destroy the Remote Server even if we can't SSH into it."`
+	KeepServerOnTrackFail   bool `cli:"t,keep-server-track-fail" usage:"Don't Destroy the Remote Server even if Tracking Fails."`
+	KeepServerOnBuildFail   bool `cli:"b,keep-server-build-fail" usage:"Don't Destroy the Remote Server even if Build Fails. (Use with Caution)"`
+	Force                   bool `cli:"f,force" usage:"Force start a build even if the recipe was built Already."`
 }
 
 func ParseGitRemoteString(remote string) (string, string) {
-   urlSlice := strings.Split(remote, "://")
+	urlSlice := strings.Split(remote, "://")
 
-   if len(urlSlice) == 2 {
-      remote = urlSlice[1]
-   }
+	if len(urlSlice) == 2 {
+		remote = urlSlice[1]
+	}
 
-   slice := strings.Split(remote, "/")
+	slice := strings.Split(remote, "/")
 
-   branchSlice := strings.Split(remote, ":")
-   branch := ""
-   url := ""
+	branchSlice := strings.Split(remote, ":")
+	branch := ""
+	url := ""
 
-   if len(branchSlice) == 2 {
-      url = branchSlice[0]
-      branch = branchSlice[1]
-   } else {
-      url = remote
-   }
+	if len(branchSlice) == 2 {
+		url = branchSlice[0]
+		branch = branchSlice[1]
+	} else {
+		url = remote
+	}
 
-   if len(urlSlice) == 2 {
-      url = fmt.Sprintf("%s://%s", urlSlice[0], url)
-   }
+	if len(urlSlice) == 2 {
+		url = fmt.Sprintf("%s://%s", urlSlice[0], url)
+	}
 
-   if len(slice) != 2 {
-      // Regular Git url
-      return url, branch
-   }
+	if len(slice) != 2 {
+		// Regular Git url
+		return url, branch
+	}
 
-   user := slice[0]
-   userSlice := strings.Split(user, "@")
+	user := slice[0]
+	userSlice := strings.Split(user, "@")
 
-   if len(userSlice) != 2 {
-      return url, branch
-   }
+	if len(userSlice) != 2 {
+		return url, branch
+	}
 
-   uname := userSlice[0]
-   host := userSlice[1]
+	uname := userSlice[0]
+	host := userSlice[1]
 
-   if strings.ToLower(host) != "gh" {
-      return url, branch
-   }
+	if strings.ToLower(host) != "gh" {
+		return url, branch
+	}
 
-   repo := slice[1]
-   repoSlice := strings.Split(repo, ":")
+	repo := slice[1]
+	repoSlice := strings.Split(repo, ":")
 
-   if len(repoSlice) == 2 {
-      repo = repoSlice[0]
-   }
+	if len(repoSlice) == 2 {
+		repo = repoSlice[0]
+	}
 
-   return fmt.Sprintf("https://github.com/%s/%s", uname, repo), branch
+	return fmt.Sprintf("https://github.com/%s/%s", uname, repo), branch
 }
 
 func NewCommand() *cli.Command {
 	return &cli.Command{
 		Name: "get",
 		Desc: "Get a build of ASOP from community recipe or locally using your Hetzner Cloud",
-		Text:`
+		Text: `
 Syntax: ham get [RECIPE LOCATION]
 
 Recipe from Github:
@@ -98,16 +104,16 @@ Local Recipe:
    ham get ./examples/enchilada_los18.1`,
 		Argv: func() interface{} { return new(getT) },
 		NumArg: func(n int) bool {
-		   if n != 1 {
-		      return false
-		   }
-		   return true
+			if n != 1 {
+				return false
+			}
+			return true
 		},
 		Fn: func(ctx *cli.Context) error {
-		   	argv := ctx.Argv().(*getT)
+			argv := ctx.Argv().(*getT)
 			args := ctx.Args()
 			if len(args) != 1 {
-			   return nil
+				return nil
 			}
 			recipe_src := args[0]
 			dir := recipe_src
@@ -115,73 +121,80 @@ Local Recipe:
 			checkMark := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
 
 			banner.GetStartBanner()
-			
+
 			fmt.Printf(" %s Parsing %s...\n", checkMark, recipe_src)
 			remove := false
 			if _, err := os.Stat(recipe_src); os.IsNotExist(err) {
-			   // Recipe is not local, so use git to clone the 
-			   // the recipe requested by the user.
-			   banner.GetRecipeNotExistsBanner()
+				// Recipe is not local, so use git to clone the
+				// the recipe requested by the user.
+				banner.GetRecipeNotExistsBanner()
 
-			   // Parse the string
-			   git_url, git_branch := ParseGitRemoteString(recipe_src)
-			   orig_branch := git_branch
+				// Parse the string
+				git_url, git_branch := ParseGitRemoteString(recipe_src)
+				orig_branch := git_branch
 
-			   if git_branch == "" {
-			      git_branch = "default"
-			   }
+				if git_branch == "" {
+					git_branch = "default"
+				}
 
-			   fmt.Printf(" %s Git URL: %s\n", checkMark, git_url)
-			   fmt.Printf(" %s Git Branch: %s\n", checkMark, git_branch) 
-			   
+				fmt.Printf(" %s Git URL: %s\n", checkMark, git_url)
+				fmt.Printf(" %s Git Branch: %s\n", checkMark, git_branch)
 
-			   uniqueTempDir, err := os.MkdirTemp(os.TempDir(), "*-ham-recipe")
-			   if err != nil {
-			      return err
-			   }
-			   dir = uniqueTempDir
-			   remove = true
+				uniqueTempDir, err := os.MkdirTemp(os.TempDir(), "*-ham-recipe")
+				if err != nil {
+					return err
+				}
+				dir = uniqueTempDir
+				remove = true
 
-			   fmt.Printf(" %s Cloning Into: %s\n", checkMark, dir)
+				fmt.Printf(" %s Cloning Into: %s\n", checkMark, dir)
 
-			   r, err := git.PlainClone(dir, false, &git.CloneOptions{
-			      URL: git_url,
-			   })
+				r, err := git.PlainClone(dir, false, &git.CloneOptions{
+					URL: git_url,
+				})
 
-			   if err != nil {
-			      _ = os.RemoveAll(dir) 
-			      return err
-			   }
+				if err != nil {
+					_ = os.RemoveAll(dir)
+					return err
+				}
 
-			   if orig_branch != "" {
-			      w, err := r.Worktree()
-			      if err != nil {
-				 _ = os.RemoveAll(dir) 	
-				 return err
-			      }
+				if orig_branch != "" {
+					w, err := r.Worktree()
+					if err != nil {
+						_ = os.RemoveAll(dir)
+						return err
+					}
 
-			      err = w.Checkout(&git.CheckoutOptions{Branch: plumbing.ReferenceName(orig_branch)})
-			      if err != nil {
-				 _ = os.RemoveAll(dir)	
-				 return err
-			      }
-			   }
+					err = w.Checkout(&git.CheckoutOptions{Branch: plumbing.ReferenceName(orig_branch)})
+					if err != nil {
+						_ = os.RemoveAll(dir)
+						return err
+					}
+				}
 			}
 
 			if remove {
-			    defer os.RemoveAll(dir)
+				defer os.RemoveAll(dir)
 			}
+
+			// Parse recipe file for meta information
+			// and args information.
+			hf, err := core.NewHAMFile(dir)
+			if err != nil {
+				return err
+			}
+			serverName := helpers.ServerNameFromSHA256(hf.SHA256Sum)
+
+			banner.GetRecipeBanner(hf.Title, hf.Version, hf.SHA256Sum)
 
 			config, err := core.GetConfiguration()
 			if err != nil {
-			   return err
+				return err
 			}
 			fmt.Printf(" %s Reading Configuration\n", checkMark)
 
-
 			client := hcloud.NewClient(hcloud.WithToken(config.APIKey))
 			fmt.Printf(" %s Connected with Hetzner Cloud API\n", checkMark)
-
 
 			sshkeys, err := client.SSHKey.All(
 				context.Background(),
@@ -199,127 +212,242 @@ Local Recipe:
 			// fmt.Println("SSH Key Fingerprint: ", keyFingerprint)
 
 			if err != nil {
-			   return err
+				return err
 			}
 
 			var ham_labels map[string]string
 
 			for _, el := range sshkeys {
 				if el.Name == "ham-ssh-key" {
-				   	// fmt.Println("Hetzner Key Fingerprint: ", el.Fingerprint)
-				        if keyFingerprint == el.Fingerprint {
-					   keyOk = true
-					   ham_labels = el.Labels
-					}	
+					// fmt.Println("Hetzner Key Fingerprint: ", el.Fingerprint)
+					if keyFingerprint == el.Fingerprint {
+						keyOk = true
+						ham_labels = el.Labels
+					}
 					break
 				}
 			}
 
 			if !keyOk {
-			   return errors.New("HAM SSH Key not found, Please Re-Initialize.")
+				return errors.New("HAM SSH Key not found, Please Re-Initialize.")
 			}
 
 			fmt.Printf(" %s Verified SSH Keys\n", checkMark)
 
-
-			// Destroy all dead servers 
+			// Destroy all dead servers
 			// whenver we see them.
 			// This is highly unlikely that our ham leaves dead servers
 			// but this is just a precaution.
 			err = helpers.DestroyAllDeadServers(&client.Server)
 			if err != nil {
-			   return err
-			}
-
-			// Parse recipe file for meta information 
-			// and args information.
-			hf, err := core.NewHAMFile(dir)
-			if err != nil {
 				return err
 			}
-			serverName := helpers.ServerNameFromSHA256(hf.SHA256Sum)
 
 			// Search for build servers that were already started
 			// if found, track that.
 			servers, err := client.Server.All(
-			   context.Background(),
+				context.Background(),
 			)
 			if err != nil {
-			   return err
+				return err
 			}
 
+			serverRunning := false
 			for _, server := range servers {
-			   if server.Name == serverName {
-			      // Track status instead of creating a new one.
-			      fmt.Printf(" %s Active Build Found\n", checkMark)
-			      fmt.Printf(" %s Started Progress on Active Build\n", checkMark)
-			      return nil
-			   }
+				if server.Name == serverName {
+					// Track status instead of creating a new one.
+					fmt.Printf(" %s Active Build Found\n", checkMark)
+					serverRunning = true
+					break
+				}
 			}
 
-			// Check the ham-ssh-key labels, label with the server
-			// name will have the last build status like success
-			// or failed.
-			for key, status := range ham_labels {
-			   if key == serverName && !argv.Force {
-			      // Confirm with user before starting the 
-			      // build again.
-			      estr := fmt.Sprintf("A %s build had run before with this recipe, Run with -f flag to force build.",
-			      			  status)
-			      return errors.New(estr)
-			   }
-			   break
-			}
-			fmt.Printf(" %s Checked Previous Builds\n", checkMark)
-			fmt.Println()
+			if !serverRunning {
+				// Check the ham-ssh-key labels, label with the server
+				// name will have the last build status like success
+				// or failed.
+				for key, status := range ham_labels {
+					if key == serverName && !argv.Force {
+						// Confirm with user before starting the
+						// build again.
+						estr := fmt.Sprintf("A %s build had run before with this recipe, Run with -f flag to force build.",
+							status)
+						return errors.New(estr)
+					}
+					break
+				}
+				fmt.Printf(" %s Checked Previous Builds\n", checkMark)
 
-			// Create a new build server.
+				// Create a new build server.
 
-			// Before that we need to get variables from the user
-			// such as special files, env vars required for the 
-			// build from the user. This might be crucial secrets
-			// so transport it with SSH to stay secure.
+				// Before that we need to get variables from the user
+				// such as special files, env vars required for the
+				// build from the user. This might be crucial secrets
+				// so transport it with SSH to stay secure.
 
-			// TODO: Actually create a server and ssh into that host.
-			sshClient, err := GetSSHClient("[::1]:22", config.SSHPrivateKey)
-			if err != nil {
-			   return err
-			}
-			defer sshClient.Close()
+				// TODO: Actually create a server and ssh into that host
+				confirmCreate := argv.NoConfirm
 
-			sshSession, err := GetSSHSession(sshClient)
-			if err != nil {
-			   return err
-			}
-			defer sshSession.Close()
+				if !argv.NoConfirm {
+					err = runConfirmCreateTeaProgram(&confirmCreate)
+					if err != nil {
+						return err
+					}
+				}
 
-			shell, err := GetSSHShell(sshSession)
-			if err != nil {
-			   return err
-			}
-
-			/* Update and Upgrade */
-			_, _ = shell.Exec("export DEBIAN_FRONTEND=noninteractive")
-			_, _ = shell.Exec("apt-get update -y --force-yes -qq")
-			_, _ = shell.Exec("apt-get upgrade -y --force-yes -qq")
-
-			err = runProgressTeaProgram(shell)
-			if err != nil {
-			   return err
+				// Keep this condition simple since this is an important
+				// decision by the user.
+				if confirmCreate == false {
+					return errors.New("User Declined to Create a New Server.")
+				} else {
+					// TODO: Create a server here
+				}
 			}
 
+			tries := 0
+			for {
+				sshCode, err := trackRemoteServerProgress("[::1]:22", config.SSHPrivateKey)
+
+				// Check for SSH Shell Code for More
+				// accurate errors.
+				if sshCode != SSH_SHELL_NO_ERROR {
+					if sshCode == SSH_SHELL_CANNOT_GET_CLIENT ||
+						sshCode == SSH_SHELL_CANNOT_GET_SESSION ||
+						sshCode == SSH_SHELL_CANNOT_CONNECT {
+						tries++
+						if tries >= 3 {
+							deleteServer(&client.Server, serverName)
+							if err != nil {
+								return err
+							}
+							return errors.New("Cannnot Get SSH Client")
+						}
+						continue
+					} else if sshCode == SSH_SHELL_MALFORMED_JSON {
+						banner.GetMalformedJSONBanner(serverName)
+						return errors.New("Malformed JSON from Build Server")
+					} else if sshCode == SSH_SHELL_HAM_STATUS_ERRORED {
+						if argv.KeepServerOnBuildFail {
+							// TODO: Show a Big Banner here about keeping
+							// the server with failed
+
+							return errors.New("Remote Build Failed, But Server is Kept and Still Running.")
+						}
+
+						deleteServer(&client.Server, serverName)
+						return errors.New("Remote Build Failed. Destroyed Server.")
+					} else {
+						tries++
+						if tries >= 3 {
+							deleteServer(&client.Server, serverName)
+							return errors.New("Unknown Build Error. Destroyed Server.")
+						}
+					}
+				} else {
+					if err != nil {
+						return err
+					}
+					break
+				}
+
+			}
 			return nil
 		},
 	}
 }
 
+func trackRemoteServerProgress(host string, sshPrivateKey string) (SSHShellCode, error) {
+	sshClient, err := GetSSHClient(host, sshPrivateKey)
+	if err != nil {
+		return SSH_SHELL_CANNOT_GET_CLIENT, err
+	}
+	defer sshClient.Close()
+
+	shell, err := GetSSHShell(sshClient)
+	if err != nil {
+		return SSH_SHELL_CANNOT_GET_SESSION, err
+	}
+
+	/*
+		This should be executed at the build.
+		_, _ = shell.Exec("DEBIAN_FRONTEND=noninteractive apt-get update -y --force-yes -qq")
+		_, _ = shell.Exec("DEBIAN FRONTEND=noninteractive apt-get upgrade -y --force-yes -qq")
+		*
+		*
+	*/
+
+	err = runProgressTeaProgram(shell)
+	if err != nil {
+		return shell.code, err
+	}
+
+	return shell.code, nil
+
+}
+
+func getServerAgeInHours(sclient *hcloud.ServerClient, serverName string) (int, error) {
+	servers, err := sclient.All(
+		context.Background(),
+	)
+
+	if err != nil {
+		return -1, err
+	}
+
+	loc, err := time.LoadLocation("UTC")
+	if err != nil {
+		return -1, err
+	}
+
+	for _, server := range servers {
+		if server.Name == serverName {
+			now := time.Now().In(loc)
+			diff := now.Sub(server.Created)
+			hours := int(diff.Hours())
+
+			return hours, nil
+		}
+	}
+
+	return -1, errors.New("Server Not Found")
+}
+
+func deleteServer(sclient *hcloud.ServerClient, serverName string) error {
+	servers, err := sclient.All(
+		context.Background(),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	for _, server := range servers {
+		if server.Name == serverName {
+			result, _, err := sclient.DeleteWithResult(
+				context.Background(),
+				server)
+
+			if err != nil {
+				return err
+			}
+
+			if result.Action.Status == "error" {
+				return errors.New(result.Action.ErrorMessage)
+			}
+			return nil
+		}
+	}
+
+	return errors.New("Server Not Found")
+}
+
 func sshFingerprint(pubkey string) (string, error) {
-   pubKeyBytes := []byte(pubkey)
+	pubKeyBytes := []byte(pubkey)
 
-   pk, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyBytes)
-   if err != nil {
-      return "", err
-   }
+	pk, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyBytes)
+	if err != nil {
+		return "", err
+	}
 
-   return ssh.FingerprintLegacyMD5(pk), nil
+	return ssh.FingerprintLegacyMD5(pk), nil
 }

@@ -49,17 +49,17 @@ func NewCommand() *cli.Command {
 
 			privateKey, err := generatePrivateKey()
 			if err != nil {
-			   return err
+				return err
 			}
 
 			sshPublicKey, err := getSSHPublicKey(privateKey.Public())
 			if err != nil {
-			   return err
+				return err
 			}
 
 			privateKeyBytes, err := encodePrivateKeyToPEM(privateKey)
 			if err != nil {
-			   return err
+				return err
 			}
 
 			pks := string(sshPublicKey[:])
@@ -118,7 +118,6 @@ func NewCommand() *cli.Command {
 				return errors.New("Configuration Already Exists, Run with -f flag.")
 			}
 
-
 			labels := make(map[string]string)
 
 			// Add the new key now
@@ -152,7 +151,7 @@ func generatePrivateKey() (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return privateKey, nil
 }
 
@@ -161,7 +160,7 @@ func encodePrivateKeyToPEM(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	// Get ASN.1 DER format
 	privDER, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
-	   return []byte(""), err
+		return []byte(""), err
 	}
 
 	// pem.Block

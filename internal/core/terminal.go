@@ -117,7 +117,7 @@ func (Term *Terminal) ExecTerminal(Index int, Command string) error {
 		if strings.Contains(wStatus, "failed") {
 			return errors.New("Command Failed")
 		}
-	} 
+	}
 
 	Term.term.Write([]byte(fmt.Sprintf("echo $HAM_CMD_INDEX' success' > /tmp/%s.ham.command.status\n", Term.uid)))
 

@@ -24,9 +24,9 @@ type buildT struct {
 }
 
 type statusT struct {
-	Status string
-	Title  string
-	Error  error
+	Status     string
+	Title      string
+	Error      error
 	Percentage int
 }
 
@@ -55,7 +55,6 @@ func NewCommand() *cli.Command {
 			if hf.SHA256Sum != argv.Sum {
 				return errors.New("SHA256 Mismatch, Bad File.")
 			}
-
 
 			// We assume the current server name at hetzner to
 			// be this and we use this assumption to destroy
@@ -129,7 +128,7 @@ func NewCommand() *cli.Command {
 				if err != nil {
 					return err
 				}
-				status.Percentage = int((float32(index)/float32(buildLen)) * 100.00)
+				status.Percentage = int((float32(index) / float32(buildLen)) * 100.00)
 			}
 
 			status.Percentage = 100
@@ -143,19 +142,19 @@ func NewCommand() *cli.Command {
 
 			pbTerminal, err := core.NewTerminal(hf.SHA256Sum + "-postbuild")
 			if err != nil {
-			   return err
+				return err
 			}
 			defer pbTerminal.CloseTerminal()
 
 			for index, cmd := range hf.PostBuild {
-			   	err := pbTerminal.ExecTerminal(index, cmd)
+				err := pbTerminal.ExecTerminal(index, cmd)
 				if err != nil {
-				   return err
+					return err
 				}
 
 				err = pbTerminal.WaitTerminal(index)
-				if err != nil { 
-				   return err
+				if err != nil {
+					return err
 				}
 			}
 
@@ -165,8 +164,8 @@ func NewCommand() *cli.Command {
 			// build-<short sha256 sum of yaml>
 			// Note: This should be handled by the destroyCurrentServer
 			// defer function.
-			// 
-			// IMPORTANT: We need to take more precautions to verify if 
+			//
+			// IMPORTANT: We need to take more precautions to verify if
 			// the expensive server is destroyed after the post build is
 			// finished. We also need to destroy the server after some
 			// specific time limit. Maybe 24 hours if something got stuck,
@@ -210,14 +209,14 @@ func handleRequest(state *statusT, conn net.Conn) {
 	request := strings.ToLower(string(buf[:rLen]))
 	var resp string
 	if state.Error != nil {
-	   resp = fmt.Sprintf("{ error: true, message: \"%s\" }\n", 
-	   		       state.Error)	
+		resp = fmt.Sprintf("{ error: true, message: \"%s\" }\n",
+			state.Error)
 	} else if request == "status" {
-	   resp = fmt.Sprintf("{ error: false, status: \"%s\", progress: \"%s\", percentage: %d }\n", 
-	   		       state.Status, state.Title, state.Percentage)
+		resp = fmt.Sprintf("{ error: false, status: \"%s\", progress: \"%s\", percentage: %d }\n",
+			state.Status, state.Title, state.Percentage)
 	} else if request == "quit" {
-	   resp = fmt.Sprintf("{ error: false, status: \"Stopping\", progress: \"Stopping\", percentage: %d }\n",
-			      state.Percentage)
+		resp = fmt.Sprintf("{ error: false, status: \"Stopping\", progress: \"Stopping\", percentage: %d }\n",
+			state.Percentage)
 		defer os.Exit(0)
 	} else {
 		resp = fmt.Sprintf("{ error: true, message: \"Unknown command\" }\n")

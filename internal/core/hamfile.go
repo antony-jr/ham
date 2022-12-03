@@ -16,11 +16,11 @@ type HAMFile struct {
 	Version   string `yaml:"version"`
 	SHA256Sum string
 	Args      []struct {
-		ID   string `yaml:"id"`
-		Name string `yaml:"name"`
-		Desc string `yaml:"desc"`
+		ID     string `yaml:"id"`
+		Name   string `yaml:"name"`
+		Desc   string `yaml:"desc"`
 		Prompt string `yaml:"prompt",omitempty`
-		Type string `yaml:"type"`
+		Type   string `yaml:"type"`
 	}
 
 	Build []struct {
