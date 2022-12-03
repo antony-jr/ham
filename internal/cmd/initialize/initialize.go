@@ -5,10 +5,14 @@ import (
 	"errors"
 	"fmt"
 
+	"crypto"
 	"crypto/rand"
-	"crypto/rsa"
+	// "crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/antony-jr/ham/internal/banner"
@@ -43,19 +47,22 @@ func NewCommand() *cli.Command {
 				return errors.New("Invalid API Key")
 			}
 
-			privateKey, err := generatePrivateKey(4096)
+			privateKey, err := generatePrivateKey()
 			if err != nil {
-				return errors.New("SSH Key Generation Failed")
+			   return err
 			}
 
-			publicKey, err := generatePublicKey(&privateKey.PublicKey)
+			sshPublicKey, err := getSSHPublicKey(privateKey.Public())
 			if err != nil {
-				return errors.New("SSH Key Generation Failed")
+			   return err
 			}
 
-			privateKeyBytes := encodePrivateKeyToPEM(privateKey)
+			privateKeyBytes, err := encodePrivateKeyToPEM(privateKey)
+			if err != nil {
+			   return err
+			}
 
-			pks := string(publicKey[:])
+			pks := string(sshPublicKey[:])
 			pks = fmt.Sprint(pks[:len(pks)-2])
 
 			config := core.NewConfiguration(
@@ -78,9 +85,11 @@ func NewCommand() *cli.Command {
 			// if found then delete it if the user
 			// forces it.
 			keyExists := false
-			for _, el := range sshkeys {
+			sshIdx := 0
+			for index, el := range sshkeys {
 				if el.Name == "ham-ssh-key" {
 					keyExists = true
+					sshIdx = index
 					break
 				}
 			}
@@ -93,12 +102,22 @@ func NewCommand() *cli.Command {
 				// Delete the existing key first then add our new one.
 				_, err := client.SSHKey.Delete(
 					context.Background(),
-					sshkeys[0],
+					sshkeys[sshIdx],
 				)
 				if err != nil {
 					return err
 				}
 			}
+
+			exists, err := helpers.FileExists(configFilePath)
+			if err != nil {
+				return err
+			}
+
+			if exists && !argv.Force {
+				return errors.New("Configuration Already Exists, Run with -f flag.")
+			}
+
 
 			labels := make(map[string]string)
 
@@ -117,15 +136,6 @@ func NewCommand() *cli.Command {
 			}
 
 			// Create Configuration File
-			exists, err := helpers.FileExists(configFilePath)
-			if err != nil {
-				return err
-			}
-
-			if exists && !argv.Force {
-				return errors.New("Configuration Already Exists, Run with -f flag.")
-			}
-
 			err = core.WriteConfiguration(config)
 			if err != nil {
 				return errors.New("Cannot Write Configuration File")
@@ -137,29 +147,26 @@ func NewCommand() *cli.Command {
 	}
 }
 
-func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
-	// Private Key generation
-	privateKey, err := rsa.GenerateKey(rand.Reader, bitSize)
+func generatePrivateKey() (*ecdsa.PrivateKey, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
 	}
-
-	// Validate Private Key
-	err = privateKey.Validate()
-	if err != nil {
-		return nil, err
-	}
+	
 	return privateKey, nil
 }
 
 // encodePrivateKeyToPEM encodes Private Key from RSA to PEM format
-func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
+func encodePrivateKeyToPEM(privateKey *ecdsa.PrivateKey) ([]byte, error) {
 	// Get ASN.1 DER format
-	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
+	privDER, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+	   return []byte(""), err
+	}
 
 	// pem.Block
 	privBlock := pem.Block{
-		Type:    "RSA PRIVATE KEY",
+		Type:    "PRIVATE KEY",
 		Headers: nil,
 		Bytes:   privDER,
 	}
@@ -167,16 +174,16 @@ func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	// Private key in PEM format
 	privatePEM := pem.EncodeToMemory(&privBlock)
 
-	return privatePEM
+	return privatePEM, nil
 }
 
-func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
-	publicRsaKey, err := ssh.NewPublicKey(privatekey)
+func getSSHPublicKey(publickey crypto.PublicKey) ([]byte, error) {
+	publicEdKey, err := ssh.NewPublicKey(publickey)
 	if err != nil {
 		return nil, err
 	}
 
-	pubKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
+	pubKeyBytes := ssh.MarshalAuthorizedKey(publicEdKey)
 
 	return pubKeyBytes, nil
 }

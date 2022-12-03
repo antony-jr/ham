@@ -280,7 +280,34 @@ Local Recipe:
 			// build from the user. This might be crucial secrets
 			// so transport it with SSH to stay secure.
 
-			runTeaProgram()
+			// TODO: Actually create a server and ssh into that host.
+			sshClient, err := GetSSHClient("[::1]:22", config.SSHPrivateKey)
+			if err != nil {
+			   return err
+			}
+			defer sshClient.Close()
+
+			sshSession, err := GetSSHSession(sshClient)
+			if err != nil {
+			   return err
+			}
+			defer sshSession.Close()
+
+			shell, err := GetSSHShell(sshSession)
+			if err != nil {
+			   return err
+			}
+
+			/* Update and Upgrade */
+			_, _ = shell.Exec("export DEBIAN_FRONTEND=noninteractive")
+			_, _ = shell.Exec("apt-get update -y --force-yes -qq")
+			_, _ = shell.Exec("apt-get upgrade -y --force-yes -qq")
+
+			err = runProgressTeaProgram(shell)
+			if err != nil {
+			   return err
+			}
+
 			return nil
 		},
 	}

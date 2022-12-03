@@ -4,17 +4,26 @@ import (
    "fmt"
    "strings"
    "time"
-   "math/rand"
-   "os"
 
+   "encoding/json"
+   
    "github.com/charmbracelet/bubbles/progress"
    "github.com/charmbracelet/bubbles/spinner"
    tea "github.com/charmbracelet/bubbletea"
    "github.com/charmbracelet/lipgloss"
 )
 
+type ProgressT struct {
+    error  bool `json:"error"`
+    status string `json:"status"`
+    progress string `json:"progress"`
+    percentage int `json:"percentage"`
+    message string `json:"message"`
+}
+
 type model struct {
-        percentage int
+   	shell *SSHShellContext
+   	percentage int
 	prog     string
 	width    int
 	height   int
@@ -29,7 +38,7 @@ var (
 	checkMark           = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
 )
 
-func newModel() model {
+func newModel(shell *SSHShellContext) model {
 	p := progress.New(
 		progress.WithDefaultGradient(),
 		progress.WithWidth(40),
@@ -37,7 +46,8 @@ func newModel() model {
 	s := spinner.New()
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("63"))
 	return model{
-	   	percentage: 0,
+	   	shell: shell,
+	        percentage: 0,
 	        prog: "Building",
 		spinner:  s,
 		progress: p,
@@ -45,7 +55,7 @@ func newModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick)
+	return tea.Batch(tea.Println(" Tracking Remote Build..."), m.spinner.Tick, refreshProgress(m.shell))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -58,17 +68,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-	case stillMsg:
-		// Update progress bar
-		progressCmd := m.progress.SetPercent(float64(m.percentage))
+	case statusJson:
+	   	raw_json := []byte(statusJson(msg))
+		var state ProgressT
+		err := json.Unmarshal(raw_json, &state)
+		if err != nil {
+		   return m, tea.Batch(
+		      tea.Printf(" Cannot Get Progress"),
+		      tea.Quit,
+		   )
+		}
 
-		m.prog = "Started"
+		m.prog = state.progress
+		m.percentage = state.percentage
 
-		return m, tea.Batch(
-		 	progressCmd,
-			downloadAndInstall(),             // download the next package
-		)
-	case statusMsg:
 		if m.percentage == 100 {
 			// Everything's been installed. We're done!
 			m.done = true
@@ -80,8 +93,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, tea.Batch(
 		 	progressCmd,
-			tea.Printf(" %s %s", checkMark, m.prog), // print success message above our program
-			downloadAndInstall(),             // download the next package
+			tea.Printf(" %s %s", checkMark, m.prog),
+			refreshProgress(m.shell),
 		)
 	case spinner.TickMsg:
 		var cmd tea.Cmd
@@ -120,17 +133,16 @@ func (m model) View() string {
 	return spin + info + gap + prog + pkgCount
 }
 
-type statusMsg string
-type stillMsg string
+type statusJson string
 
-func downloadAndInstall() tea.Cmd {
-        d := time.Millisecond * time.Duration(rand.Intn(2500))
+func refreshProgress(shell *SSHShellContext) tea.Cmd {
+        d := time.Millisecond * time.Duration(5)
 	return tea.Tick(d, func(t time.Time) tea.Msg {
-	   // Through SSH get the status json here.
-	   // Send it via stillMsg or rename it to statusMsg
-	   // as a single type.
-	   // Parse the json up in the update and do your thing
-	   return stillMsg("")
+	   out, err := shell.Exec("ham build-status | cat |  grep -a Status | cut -c 10-")
+	   if err != nil {
+	      return statusJson("{error: true, message: \"Cannot SSH\"}")
+	   }
+	   return statusJson(out)
 	})
 }
 
@@ -141,9 +153,10 @@ func max(a, b int) int {
 	return b
 }
 
-func runTeaProgram() {
-   if _, err := tea.NewProgram(newModel()).Run(); err != nil {
-		fmt.Println("Error running program:", err)
-		os.Exit(1)
-    }
+func runProgressTeaProgram(shell *SSHShellContext) error {
+   if _, err := tea.NewProgram(newModel(shell)).Run(); err != nil {
+      return err
+   }
+
+   return nil
 }
