@@ -17,9 +17,8 @@ type HAMFile struct {
 	SHA256Sum string
 	Args      []struct {
 		ID     string `yaml:"id"`
-		Name   string `yaml:"name"`
-		Desc   string `yaml:"desc"`
-		Prompt string `yaml:"prompt",omitempty`
+		Prompt string `yaml:"prompt"`
+		Required *bool `yaml:"required",omitempty`
 		Type   string `yaml:"type"`
 	}
 

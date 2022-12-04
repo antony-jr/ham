@@ -26,6 +26,7 @@ type getT struct {
 	cli.Helper
 
 	NoConfirm               bool `cli:"n,no-confirm" usage:"Auto Confirm 'Yes' to all questions for the user. (Use with Caution)"`
+	KeepServer              bool `cli:"k,keep-server" usage:"Don't Destroy the Remote Server on any error."`
 	KeepServerOnConnectFail bool `cli:"s,keep-server-conn-fail" usage:"Don't Destroy the Remote Server even if we can't SSH into it."`
 	KeepServerOnTrackFail   bool `cli:"t,keep-server-track-fail" usage:"Don't Destroy the Remote Server even if Tracking Fails."`
 	KeepServerOnBuildFail   bool `cli:"b,keep-server-build-fail" usage:"Don't Destroy the Remote Server even if Build Fails. (Use with Caution)"`
@@ -96,6 +97,10 @@ func NewCommand() *cli.Command {
 		Text: `
 Syntax: ham get [RECIPE LOCATION]
 
+Recipe from Ham Community:
+   ham get ~@gh/enchilada_los18.1
+   ham get ~@gh/enchilada_los18.1:bleeding
+
 Recipe from Github:
    ham get user@gh/repo:branch
    ham get antony-jr@gh/enchilada_los18.1
@@ -123,6 +128,7 @@ Local Recipe:
 			dir := recipe_src
 
 			checkMark := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
+			optionalSuffix := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString(" (OPTIONAL, Press ENTER to Skip)")
 
 			banner.GetStartBanner()
 
@@ -266,6 +272,10 @@ Local Recipe:
 				}
 			}
 
+			// This is a safety net.
+			destroyServer := !argv.KeepServer
+			defer deferDeleteServer(&client.Server, &destroyServer, serverName)
+
 			if !serverRunning {
 				// Check the ham-ssh-key labels, label with the server
 				// name will have the last build status like success
@@ -288,8 +298,46 @@ Local Recipe:
 				// such as special files, env vars required for the
 				// build from the user. This might be crucial secrets
 				// so transport it with SSH to stay secure.
-				// TODO: Get Args from User which is required in
-				// the hamfile
+				buildVars := core.NewVariables()
+
+				if len(hf.Args) != 0 {
+					banner.GetQuestionBanner()
+
+					for _, arg := range hf.Args {
+						placeholder := "Value"
+						required := false
+						valueType := core.VARIABLE_TYPE_VALUE
+
+						argType := strings.ToLower(arg.Type)
+						if argType == "file" {
+							placeholder = "File Path"
+							valueType = core.VARIABLE_TYPE_FILE_PATH
+						} else if argType == "secret" {
+							placeholder = "Secret"
+							valueType = core.VARIABLE_TYPE_SECRET
+						}
+
+						if arg.Required != nil {
+							required = *arg.Required
+						}
+
+						questionResponse := NewQuestionResponse(required, valueType == core.VARIABLE_TYPE_SECRET)
+
+						suffix := ""
+						if !required {
+							suffix = fmt.Sprintf("%s", optionalSuffix)
+						}
+
+						runQuestionTeaProgram(questionResponse, arg.Prompt+suffix, placeholder)
+
+						if questionResponse.err != nil {
+							return questionResponse.err
+						}
+
+						buildVars.PutVar(arg.ID, questionResponse.answer, valueType)
+						fmt.Println()
+					}
+				}
 
 				// Get Suitable Server and Price
 				price, serverType, err := GrossServerPriceForServerWithHighestPerformance(client)
@@ -328,30 +376,71 @@ Local Recipe:
 						sshCode == SSH_SHELL_CANNOT_CONNECT {
 						tries++
 						if tries >= 3 {
-							deleteServer(&client.Server, serverName)
-							if err != nil {
-								return err
+							if argv.KeepServer || argv.KeepServerOnConnectFail {
+								destroyServer = false
+								banner.GetConnectFailBanner(serverName)
+								return errors.New(
+									"Cannot Get SSH Client (" + err.Error() + "), But Server is Kept and Still Running.")
 							}
-							return errors.New("Cannnot Get SSH Client")
+
+							delErr := tryDeleteServer(&client.Server, serverName, 20, 5)
+							if delErr != nil {
+								banner.GetConnectFailBanner(serverName)
+								return delErr
+							}
+
+							destroyServer = false
+							return errors.New("Cannnot Get SSH Client (" + err.Error() + "). Destroyed Server.")
 						}
+
+						time.Sleep(time.Second * time.Duration(5))
 						continue
 					} else if sshCode == SSH_SHELL_MALFORMED_JSON {
-						banner.GetMalformedJSONBanner(serverName)
-						return errors.New("Malformed JSON from Build Server")
-					} else if sshCode == SSH_SHELL_HAM_STATUS_ERRORED {
-						if argv.KeepServerOnBuildFail {
-							// TODO: Show a Big Banner here about keeping
-							// the server with failed
+						if argv.KeepServer || argv.KeepServerOnTrackFail {
+							destroyServer = false
+							banner.GetMalformedJSONBanner(serverName)
+							return errors.New("Malformed JSON from Build Server, But Server is Kept and Still Running.")
+						}
 
+						tries++
+						if tries < 10 {
+							fmt.Println(" Retrying in 10 mins... ")
+							time.Sleep(time.Minute * time.Duration(10))
+							continue
+						}
+
+						delErr := tryDeleteServer(&client.Server, serverName, 20, 5)
+						if delErr != nil {
+							banner.GetMalformedJSONBanner(serverName)
+							return delErr
+						}
+
+						destroyServer = false
+						return errors.New("Malformed JSON from Build Server. Destroyed Server")
+					} else if sshCode == SSH_SHELL_HAM_STATUS_ERRORED {
+						if argv.KeepServer || argv.KeepServerOnBuildFail {
+							destroyServer = false
+							banner.GetBuildFailedBanner(serverName)
 							return errors.New("Remote Build Failed, But Server is Kept and Still Running.")
 						}
 
-						deleteServer(&client.Server, serverName)
+						delErr := tryDeleteServer(&client.Server, serverName, 20, 5)
+						if delErr != nil {
+							banner.GetBuildFailedBanner(serverName)
+							return delErr
+						}
+
+						destroyServer = false
 						return errors.New("Remote Build Failed. Destroyed Server.")
 					} else {
 						tries++
 						if tries >= 3 {
-							deleteServer(&client.Server, serverName)
+							delErr := tryDeleteServer(&client.Server, serverName, 20, 5)
+							if delErr != nil {
+								return delErr
+							}
+
+							destroyServer = false
 							return errors.New("Unknown Build Error. Destroyed Server.")
 						}
 					}
@@ -359,13 +448,51 @@ Local Recipe:
 					if err != nil {
 						return err
 					}
+
+					destroyServer = false
 					break
 				}
 
 			}
+
+			// TODO: Check if the build succeeded, if not then
+			// try to delete the server if it's still running.
+			// The build server should been already destroyed
+			// if the build failed or succeeded.
+
 			return nil
 		},
 	}
+}
+
+// This is defer delete, might come in handy when user exits the
+// program with Ctrl+Z or some other means, as long it's not killed
+// it can try to delete any created server. The state is checked if
+// we have to delete the server since it may not be desired by the
+// user.
+func deferDeleteServer(sclient *hcloud.ServerClient, destroy *bool, serverName string) {
+	if destroy != nil && *destroy {
+		tryDeleteServer(sclient, serverName, 5, 5)
+	}
+}
+
+func tryDeleteServer(sclient *hcloud.ServerClient, serverName string, maxTries int, interval int) error {
+	delTries := 0
+	for {
+		delErr := deleteServer(sclient, serverName)
+		if delErr.Error() == "Server Not Found" {
+			break
+		}
+
+		delTries++
+		fmt.Println("Destroying Server Failed. Retrying... ")
+		time.Sleep(time.Second * time.Duration(interval))
+		if delTries > maxTries {
+			return errors.New("Cannot Destroy Remote Server. " + delErr.Error())
+		}
+	}
+
+	return nil
 }
 
 func trackRemoteServerProgress(host string, sshPrivateKey string) (SSHShellCode, error) {
