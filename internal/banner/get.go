@@ -40,6 +40,23 @@ func GetRecipeBanner(name string, ver string, hash string) {
 	fmt.Print(out)
 }
 
+func GetServerPriceInformationBanner(name string, price float64) {
+   	in := "# Price Information\n"
+	in += "Server Name: %s\n\n"
+	in += "Gross Price: **%f** euros/hour.\n\n"
+	in += "Aproximate Total Price: **%f** euros/build.\n\n"
+	in += "The price might go higher or lower depending on the build but there are precautions taken"
+	in += " to not allow the server to run beyond 24 hours. So the maximum you might pay at the worst"
+	in += " case is **%f euros**.\n\n"
+	in += "**Disclaimer**: There are lot of precautions taken to destroy the server if it runs beyond"
+	in += " 24 hours, but this is not a promise or waranty of any means, you should always run ```ham clean```"
+	in += " after each ```ham get``` run and you are responsible to check for any active servers running." 
+	in = fmt.Sprintf(in, name, price, price * 8.0, price * 24.0)
+
+	out, _ := glamour.Render(in, "auto")
+	fmt.Print(out)
+}
+
 func GetRecipeNotExistsBanner() {
 	c := color.New(color.FgYellow)
 	c.Print(" Recipe does not exist locally, Using GIT.\n")
