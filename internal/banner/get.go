@@ -42,7 +42,7 @@ func GetRecipeBanner(name string, ver string, hash string) {
 
 func GetRecipeNotExistsBanner() {
 	c := color.New(color.FgYellow)
-	c.Print("Recipe does not exist locally, Using GIT.\n")
+	c.Print(" Recipe does not exist locally, Using GIT.\n")
 }
 
 func GetFinishBanner() {

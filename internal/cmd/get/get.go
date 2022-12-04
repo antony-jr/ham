@@ -57,7 +57,6 @@ func ParseGitRemoteString(remote string) (string, string) {
 	}
 
 	if len(slice) != 2 {
-		// Regular Git url
 		return url, branch
 	}
 
@@ -65,7 +64,7 @@ func ParseGitRemoteString(remote string) (string, string) {
 	userSlice := strings.Split(user, "@")
 
 	if len(userSlice) != 2 {
-		return url, branch
+	   	return url, branch
 	}
 
 	uname := userSlice[0]
@@ -80,6 +79,11 @@ func ParseGitRemoteString(remote string) (string, string) {
 
 	if len(repoSlice) == 2 {
 		repo = repoSlice[0]
+	}
+
+	// Official HAM Recipes.
+	if uname == "~" {
+	   return fmt.Sprintf("https://github.com/ham-community/%s", repo), branch
 	}
 
 	return fmt.Sprintf("https://github.com/%s/%s", uname, repo), branch
@@ -284,8 +288,12 @@ Local Recipe:
 				// such as special files, env vars required for the
 				// build from the user. This might be crucial secrets
 				// so transport it with SSH to stay secure.
+				// TODO: Get Args from User which is required in 
+				// the hamfile
 
-				// TODO: Actually create a server and ssh into that host
+				// TODO: Get latest price of the server we want to 
+				// create and show to the user.
+
 				confirmCreate := argv.NoConfirm
 
 				if !argv.NoConfirm {
