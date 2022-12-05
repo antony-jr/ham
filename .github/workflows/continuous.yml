@@ -20,7 +20,8 @@ jobs:
         strip ham
         mv ham ham-linux-amd64
 
-    - uses: svenstaro/upload-release-action@v2
+    - name: Upload Binary
+      uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ./ham-linux-amd64
