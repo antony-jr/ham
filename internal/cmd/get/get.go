@@ -484,6 +484,16 @@ Local Recipe:
 					return err
 				}
 
+				// Copy HAM Configuration File
+				configFilePath, err := helpers.ConfigFilePath()
+				if err != nil {
+				   return err
+				}
+				err = helpers.SFTPCopyFileToRemote(sftpClient, "/root/.ham.json", configFilePath)
+				if err != nil {
+				   return err
+				}
+
 				// Make required directories
 				_, err = shell.Exec("mkdir -p /ham-build")
 				_, err = shell.Exec("mkdir -p /ham-recipe")
