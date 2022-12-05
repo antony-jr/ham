@@ -227,12 +227,15 @@ Local Recipe:
 
 			var ham_labels map[string]string
 
+			var hamSSHKey *hcloud.SSHKey
+
 			for _, el := range sshkeys {
 				if el.Name == "ham-ssh-key" {
 					// fmt.Println("Hetzner Key Fingerprint: ", el.Fingerprint)
 					if keyFingerprint == el.Fingerprint {
 						keyOk = true
 						ham_labels = el.Labels
+						hamSSHKey = el
 					}
 					break
 				}
@@ -455,12 +458,40 @@ Local Recipe:
 
 			}
 
-			// TODO: Check if the build succeeded, if not then
-			// try to delete the server if it's still running.
-			// The build server should been already destroyed
-			// if the build failed or succeeded.
+			statusTries := 0
+			for statusTries < 20 {
+				statusTries++
 
-			return nil
+				allSSHKeys, err := client.SSHKey.All(
+					context.Background(),
+				)
+				if err != nil {
+					time.Sleep(time.Second * time.Duration(10))
+					continue
+				}
+
+				for _, key := range allSSHKeys {
+					if key.Name == hamSSHKey.Name {
+						labels := key.Labels
+						for serv, buildStatus := range labels {
+							if serv == serverName {
+								if buildStatus == "successful" {
+									fmt.Println("Build Successful")
+								} else if buildStatus == "inprogress" {
+									fmt.Println("Build in Progress")
+								} else {
+									destroyServer = !argv.KeepServer || !argv.KeepServerOnBuildFail
+								}
+								return nil
+							}
+						}
+					}
+				}
+
+			}
+
+			banner.GetMalformedJSONBanner(serverName)
+			return errors.New("Cannot Get Status of Build.")
 		},
 	}
 }
