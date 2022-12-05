@@ -18,6 +18,8 @@ build:
     run: cd lineage
   - title: "Echoing file"
     run: echo 'Hello World' > test.txt
+  - title: Test
+    run: echo "$PATH" > env.txt
 
 post_build:
   - echo "Finished" > lineage/build.txt

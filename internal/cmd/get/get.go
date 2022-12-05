@@ -12,8 +12,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/mkideal/cli"
 
-	"golang.org/x/crypto/ssh"
-
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/antony-jr/ham/internal/banner"
@@ -93,7 +91,7 @@ func ParseGitRemoteString(remote string) (string, string) {
 func NewCommand() *cli.Command {
 	return &cli.Command{
 		Name: "get",
-		Desc: "Get a build of ASOP from community recipe or locally using your Hetzner Cloud",
+		Desc: "Get a build of AOSP from community recipe or locally using your Hetzner Cloud",
 		Text: `
 Syntax: ham get [RECIPE LOCATION]
 
@@ -217,7 +215,7 @@ Local Recipe:
 			// if it does not exists then error out
 			// asking the user to properly init.
 			keyOk := false
-			keyFingerprint, err := sshFingerprint(config.SSHPublicKey)
+			keyFingerprint, err := helpers.GetSSHFingerprint(config.SSHPublicKey)
 
 			// fmt.Println("SSH Key Fingerprint: ", keyFingerprint)
 
@@ -386,7 +384,7 @@ Local Recipe:
 									"Cannot Get SSH Client (" + err.Error() + "), But Server is Kept and Still Running.")
 							}
 
-							delErr := tryDeleteServer(&client.Server, serverName, 20, 5)
+							delErr := helpers.TryDeleteServer(&client.Server, serverName, 20, 5)
 							if delErr != nil {
 								banner.GetConnectFailBanner(serverName)
 								return delErr
@@ -412,7 +410,7 @@ Local Recipe:
 							continue
 						}
 
-						delErr := tryDeleteServer(&client.Server, serverName, 20, 5)
+						delErr := helpers.TryDeleteServer(&client.Server, serverName, 20, 5)
 						if delErr != nil {
 							banner.GetMalformedJSONBanner(serverName)
 							return delErr
@@ -427,7 +425,7 @@ Local Recipe:
 							return errors.New("Remote Build Failed, But Server is Kept and Still Running.")
 						}
 
-						delErr := tryDeleteServer(&client.Server, serverName, 20, 5)
+						delErr := helpers.TryDeleteServer(&client.Server, serverName, 20, 5)
 						if delErr != nil {
 							banner.GetBuildFailedBanner(serverName)
 							return delErr
@@ -438,7 +436,7 @@ Local Recipe:
 					} else {
 						tries++
 						if tries >= 3 {
-							delErr := tryDeleteServer(&client.Server, serverName, 20, 5)
+							delErr := helpers.TryDeleteServer(&client.Server, serverName, 20, 5)
 							if delErr != nil {
 								return delErr
 							}
@@ -503,27 +501,8 @@ Local Recipe:
 // user.
 func deferDeleteServer(sclient *hcloud.ServerClient, destroy *bool, serverName string) {
 	if destroy != nil && *destroy {
-		tryDeleteServer(sclient, serverName, 5, 5)
+		helpers.TryDeleteServer(sclient, serverName, 5, 5)
 	}
-}
-
-func tryDeleteServer(sclient *hcloud.ServerClient, serverName string, maxTries int, interval int) error {
-	delTries := 0
-	for {
-		delErr := deleteServer(sclient, serverName)
-		if delErr.Error() == "Server Not Found" {
-			break
-		}
-
-		delTries++
-		fmt.Println("Destroying Server Failed. Retrying... ")
-		time.Sleep(time.Second * time.Duration(interval))
-		if delTries > maxTries {
-			return errors.New("Cannot Destroy Remote Server. " + delErr.Error())
-		}
-	}
-
-	return nil
 }
 
 func trackRemoteServerProgress(host string, sshPrivateKey string) (SSHShellCode, error) {
@@ -553,71 +532,4 @@ func trackRemoteServerProgress(host string, sshPrivateKey string) (SSHShellCode,
 
 	return shell.code, nil
 
-}
-
-func getServerAgeInHours(sclient *hcloud.ServerClient, serverName string) (int, error) {
-	servers, err := sclient.All(
-		context.Background(),
-	)
-
-	if err != nil {
-		return -1, err
-	}
-
-	loc, err := time.LoadLocation("UTC")
-	if err != nil {
-		return -1, err
-	}
-
-	for _, server := range servers {
-		if server.Name == serverName {
-			now := time.Now().In(loc)
-			diff := now.Sub(server.Created)
-			hours := int(diff.Hours())
-
-			return hours, nil
-		}
-	}
-
-	return -1, errors.New("Server Not Found")
-}
-
-func deleteServer(sclient *hcloud.ServerClient, serverName string) error {
-	servers, err := sclient.All(
-		context.Background(),
-	)
-
-	if err != nil {
-		return err
-	}
-
-	for _, server := range servers {
-		if server.Name == serverName {
-			result, _, err := sclient.DeleteWithResult(
-				context.Background(),
-				server)
-
-			if err != nil {
-				return err
-			}
-
-			if result.Action.Status == "error" {
-				return errors.New(result.Action.ErrorMessage)
-			}
-			return nil
-		}
-	}
-
-	return errors.New("Server Not Found")
-}
-
-func sshFingerprint(pubkey string) (string, error) {
-	pubKeyBytes := []byte(pubkey)
-
-	pk, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyBytes)
-	if err != nil {
-		return "", err
-	}
-
-	return ssh.FingerprintLegacyMD5(pk), nil
 }

@@ -115,7 +115,8 @@ func (Term *Terminal) ExecTerminal(Index int, Command string) error {
 
 	if idx == Index {
 		if strings.Contains(wStatus, "failed") {
-			return errors.New("Command Failed")
+			estr := fmt.Sprintf("Command Failed at Entry %d", idx+1)
+			return errors.New(estr)
 		}
 	}
 
