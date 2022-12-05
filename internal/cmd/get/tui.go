@@ -14,12 +14,16 @@ import (
 	"github.com/kyokomi/emoji/v2"
 )
 
+type ErrorStatusT struct {
+   error bool `json:"error"`
+   message string `json:"message"`
+}
+
 type ProgressT struct {
 	error      bool   `json:"error"`
 	status     string `json:"status"`
 	progress   string `json:"progress"`
 	percentage int    `json:"percentage"`
-	message    string `json:"message"`
 }
 
 type model struct {
@@ -77,21 +81,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case statusJson:
 		raw_json := []byte(statusJson(msg))
 		var state ProgressT
-
+	
 		err := json.Unmarshal(raw_json, &state)
 		if err != nil {
-			return m, tea.Batch(
-				tea.Printf(" %sCannot Get Progress from Remote.\n", crossMark),
+		   var errResp ErrorStatusT
+		   err := json.Unmarshal(raw_json, &errResp)
+		   if err != nil {
+		   	return m, tea.Batch(
+				tea.Printf(" %sCannot Get Progress from Remote. (%s)\n", crossMark, err.Error()),
 				withErrorQuit(m.shell, SSH_SHELL_MALFORMED_JSON),
 			)
-		}
-
-		if state.error {
+		    } else {
+		       if errResp.error {
 			return m, tea.Batch(
-				tea.Printf(" %s%s", state.message, crossMark),
+				tea.Printf(" %s%s", errResp.message, crossMark),
 				tea.Printf(" %sBuild Failed.\n", crossMark),
 				withErrorQuit(m.shell, SSH_SHELL_HAM_STATUS_ERRORED),
 			)
+		}
+
+		    }
 		}
 
 		m.prog = state.progress

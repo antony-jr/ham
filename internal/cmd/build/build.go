@@ -447,19 +447,19 @@ func handleRequest(state *statusT, conn net.Conn) {
 	request := strings.ToLower(string(buf[:rLen]))
 	var resp string
 	if state.Error != nil {
-		resp = fmt.Sprintf("{ error: true, message: \"%s\" }\n",
+		resp = fmt.Sprintf("{ \"error\": true, \"message\": \"%s\" }\n",
 			state.Error)
 	} else if request == "status" {
-		resp = fmt.Sprintf("{ error: false, status: \"%s\", progress: \"%s\", percentage: %d }\n",
+		resp = fmt.Sprintf("{ \"error\": false, \"status\": \"%s\", \"progress\": \"%s\", \"percentage\": %d }\n",
 			state.Status, state.Title, state.Percentage)
 	} else if request == "quit" {
-		resp = fmt.Sprintf("{ error: false, status: \"Stopping\", progress: \"Stopping\", percentage: %d }\n",
+		resp = fmt.Sprintf("{ \"error\": false, \"status\": \"Stopping\", \"progress\": \"Stopping\", \"percentage\": %d }\n",
 			state.Percentage)
 		state.Status = "Stopping Build"
 		state.Title = "Stopping Build"
 		state.Quit = true
 	} else {
-		resp = fmt.Sprintf("{ error: true, message: \"Unknown command\" }\n")
+		resp = fmt.Sprintf("{ \"error\": true, \"message\": \"Unknown command\" }\n")
 	}
 
 	conn.Write([]byte(resp))

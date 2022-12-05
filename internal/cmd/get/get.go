@@ -474,9 +474,9 @@ Local Recipe:
 					return err
 				}
 
-				_, err = shell.Exec("DEBIAN_FRONTEND=noninteractive apt-get update -y -qq")
-				_, err = shell.Exec("DEBIAN FRONTEND=noninteractive apt-get upgrade -y -qq")
-				_, err = shell.Exec("DEBIAN FRONTEND=noninteractive apt-get install -y -qq git wget curl")
+				_, err = shell.Exec("apt-get update -y -qq")
+				_, err = shell.Exec("apt-get upgrade -y -qq")
+				_, err = shell.Exec("apt-get install -y -qq git wget curl")
 
 				if runtime.GOOS != "linux" && !testingRun {
 					_, err = shell.Exec(fmt.Sprintf("wget -O /usr/bin/ham \"%s\"", HAM_LINUX_BINARY_URL))
