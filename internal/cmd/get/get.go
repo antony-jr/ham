@@ -38,6 +38,7 @@ type getT struct {
 	KeepServerOnTrackFail   bool   `cli:"t,keep-server-track-fail" usage:"Don't Destroy the Remote Server even if Tracking Fails."`
 	KeepServerOnBuildFail   bool   `cli:"b,keep-server-build-fail" usage:"Don't Destroy the Remote Server even if Build Fails. (Use with Caution)"`
 	TestingSSHIP            string `cli:"i,testing-ssh-ip" usage:"Run a Test Run without Creating Servers and Use the given IP as Build Server. (Developer)"`
+	DontInitTesting		bool   `cli:"m,testing-no-init" usage:"When under Test Run, Don't Initialize the Server, rather Start Tracking. (Developer)"`
 	Force                   bool   `cli:"f,force" usage:"Force start a build even if the recipe was built Already."`
 }
 
@@ -301,6 +302,10 @@ Local Recipe:
 
 			if testingRun {
 				serverRunning = false
+			}
+
+			if testingRun && argv.DontInitTesting {
+			   serverRunning = true
 			}
 
 			// This is a safety net.
@@ -570,12 +575,12 @@ Local Recipe:
 					return err
 				}
 
-				time.Sleep(time.Second * time.Duration(10))
-
 				sftpClient.Close()
 				sshSftpClient.Close()
 				sshShellClient.Close()
 			}
+
+			time.Sleep(time.Second * time.Duration(10))
 
 			tries := 0
 			for {
