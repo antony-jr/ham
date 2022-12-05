@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -20,15 +22,23 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 )
 
+// TODO: Update this once made a public build available. We need
+// to point this url to the latest linux build for the server to
+// use.
+const (
+	HAM_LINUX_BINARY_URL string = "https://github.com/antony-jr/ham/releases/latest"
+)
+
 type getT struct {
 	cli.Helper
 
-	NoConfirm               bool `cli:"n,no-confirm" usage:"Auto Confirm 'Yes' to all questions for the user. (Use with Caution)"`
-	KeepServer              bool `cli:"k,keep-server" usage:"Don't Destroy the Remote Server on any error."`
-	KeepServerOnConnectFail bool `cli:"s,keep-server-conn-fail" usage:"Don't Destroy the Remote Server even if we can't SSH into it."`
-	KeepServerOnTrackFail   bool `cli:"t,keep-server-track-fail" usage:"Don't Destroy the Remote Server even if Tracking Fails."`
-	KeepServerOnBuildFail   bool `cli:"b,keep-server-build-fail" usage:"Don't Destroy the Remote Server even if Build Fails. (Use with Caution)"`
-	Force                   bool `cli:"f,force" usage:"Force start a build even if the recipe was built Already."`
+	NoConfirm               bool   `cli:"n,no-confirm" usage:"Auto Confirm 'Yes' to all questions for the user. (Use with Caution)"`
+	KeepServer              bool   `cli:"k,keep-server" usage:"Don't Destroy the Remote Server on any error."`
+	KeepServerOnConnectFail bool   `cli:"s,keep-server-conn-fail" usage:"Don't Destroy the Remote Server even if we can't SSH into it."`
+	KeepServerOnTrackFail   bool   `cli:"t,keep-server-track-fail" usage:"Don't Destroy the Remote Server even if Tracking Fails."`
+	KeepServerOnBuildFail   bool   `cli:"b,keep-server-build-fail" usage:"Don't Destroy the Remote Server even if Build Fails. (Use with Caution)"`
+	TestingSSHIP            string `cli:"i,testing-ssh-ip" usage:"Run a Test Run without Creating Servers and Use the given IP as Build Server. (Developer)"`
+	Force                   bool   `cli:"f,force" usage:"Force start a build even if the recipe was built Already."`
 }
 
 func ParseGitRemoteString(remote string) (string, string) {
@@ -124,6 +134,13 @@ Local Recipe:
 			}
 			recipe_src := args[0]
 			dir := recipe_src
+			testingRun := len(argv.TestingSSHIP) != 0
+
+			if testingRun {
+				if runtime.GOOS != "linux" {
+					return errors.New("OS Not Supported for Testing. Get a Linux Machine to Develop HAM.")
+				}
+			}
 
 			checkMark := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
 			optionalSuffix := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString(" (OPTIONAL, Press ENTER to Skip)")
@@ -132,6 +149,9 @@ Local Recipe:
 
 			fmt.Printf(" %s Parsing %s...\n", checkMark, recipe_src)
 			remove := false
+			usedGit := false
+			gitUrl := ""
+			gitBranch := ""
 			if _, err := os.Stat(recipe_src); os.IsNotExist(err) {
 				// Recipe is not local, so use git to clone the
 				// the recipe requested by the user.
@@ -154,6 +174,9 @@ Local Recipe:
 				}
 				dir = uniqueTempDir
 				remove = true
+				usedGit = true
+				gitUrl = git_url
+				gitBranch = orig_branch
 
 				fmt.Printf(" %s Cloning Into: %s\n", checkMark, dir)
 
@@ -183,6 +206,10 @@ Local Recipe:
 
 			if remove {
 				defer os.RemoveAll(dir)
+			}
+
+			if testingRun {
+				fmt.Printf(" ! RUNNING IN TESTING MODE ! \n")
 			}
 
 			// Parse recipe file for meta information
@@ -217,8 +244,6 @@ Local Recipe:
 			keyOk := false
 			keyFingerprint, err := helpers.GetSSHFingerprint(config.SSHPublicKey)
 
-			// fmt.Println("SSH Key Fingerprint: ", keyFingerprint)
-
 			if err != nil {
 				return err
 			}
@@ -229,7 +254,6 @@ Local Recipe:
 
 			for _, el := range sshkeys {
 				if el.Name == "ham-ssh-key" {
-					// fmt.Println("Hetzner Key Fingerprint: ", el.Fingerprint)
 					if keyFingerprint == el.Fingerprint {
 						keyOk = true
 						ham_labels = el.Labels
@@ -263,19 +287,36 @@ Local Recipe:
 				return err
 			}
 
+			var currentBuildServer *hcloud.Server
 			serverRunning := false
 			for _, server := range servers {
 				if server.Name == serverName {
 					// Track status instead of creating a new one.
+					currentBuildServer = server
 					fmt.Printf(" %s Active Build Found\n", checkMark)
 					serverRunning = true
 					break
 				}
 			}
 
+			if testingRun {
+				serverRunning = false
+			}
+
 			// This is a safety net.
 			destroyServer := !argv.KeepServer
 			defer deferDeleteServer(&client.Server, &destroyServer, serverName)
+
+			var ip6Addr string
+			if testingRun {
+				ip6Addr = argv.TestingSSHIP
+			} else {
+				if currentBuildServer != nil {
+					ip6Addr = fmt.Sprintf("[%s]:22", string(currentBuildServer.PublicNet.IPv6.IP))
+				} else {
+					ip6Addr = "[::1]:22"
+				}
+			}
 
 			if !serverRunning {
 				// Check the ham-ssh-key labels, label with the server
@@ -285,6 +326,9 @@ Local Recipe:
 					if key == serverName && !argv.Force {
 						// Confirm with user before starting the
 						// build again.
+						if testingRun {
+							break
+						}
 						estr := fmt.Sprintf("A %s build had run before with this recipe, Run with -f flag to force build.",
 							status)
 						return errors.New(estr)
@@ -340,34 +384,190 @@ Local Recipe:
 					}
 				}
 
-				// Get Suitable Server and Price
-				price, serverType, err := GrossServerPriceForServerWithHighestPerformance(client)
+				// Build the vars.json file and get ready to upload
+				// to the server once created
+				fileUploads := make(map[string]string)
+				varsJson := make(map[string]string)
+				fileIndex := 0
+				for key, val := range buildVars.Vars {
+					if val.Type == core.VARIABLE_TYPE_VALUE ||
+						val.Type == core.VARIABLE_TYPE_SECRET {
+						if len(val.Value) != 0 {
+							varsJson[key] = val.Value
+						}
+					} else if val.Type == core.VARIABLE_TYPE_FILE_PATH {
+						exists, err := helpers.FileExists(val.Value)
+						if !exists {
+							return errors.New("File given in Variables does not Exists (" + err.Error() + ")")
+						}
+
+						fileIndex++
+						varsJson[key] = fmt.Sprintf("/ham-files/%d", fileIndex)
+						fileUploads[val.Value] = varsJson[key]
+					}
+				}
+				varsFilePath := fmt.Sprintf("%s%c%s-vars.json", os.TempDir(), os.PathSeparator, serverName)
+				err = helpers.DumpJsonFile(varsJson, varsFilePath)
 				if err != nil {
 					return err
 				}
-				banner.GetServerPriceInformationBanner(strings.ToUpper(serverType.Name), price)
+				defer os.Remove(varsFilePath)
 
-				confirmCreate := argv.NoConfirm
+				// In testing we don't need to get price or confirmation
+				// or creation of server.
+				if !testingRun {
 
-				if !argv.NoConfirm {
-					err = runConfirmCreateTeaProgram(&confirmCreate)
+					// Get Suitable Server and Price
+					price, serverType, err := GrossServerPriceForServerWithHighestPerformance(client)
+					if err != nil {
+						return err
+					}
+					banner.GetServerPriceInformationBanner(strings.ToUpper(serverType.Name), price)
+
+					confirmCreate := argv.NoConfirm
+
+					if !argv.NoConfirm {
+						err = runConfirmCreateTeaProgram(&confirmCreate)
+						if err != nil {
+							return err
+						}
+					}
+
+					// Keep this condition simple since this is an important
+					// decision by the user.
+					if confirmCreate == false {
+						return errors.New("User Declined to Create a New Server.")
+					} else {
+						// ! IMPORTANT SECTION !
+						// TODO: Create a server here
+						// TODO: Set currentBuildServer here
+						// TODO: ip6Addr = fmt.Sprintf("[%s]:22", string(currentBuildServer.PublicNet.IPv6.IP))
+
+					}
+				}
+
+				// Install HAM Linux Binary to the Server
+				sshShellClient, err := GetSSHClient(ip6Addr, config.SSHPrivateKey)
+				if err != nil {
+					return err
+				}
+				defer sshShellClient.Close()
+				sshSftpClient, err := GetSSHClient(ip6Addr, config.SSHPrivateKey)
+				if err != nil {
+					return err
+				}
+				defer sshSftpClient.Close()
+
+				sftpClient, err := helpers.GetSFTPClient(sshSftpClient)
+				if err != nil {
+					return err
+				}
+				defer sftpClient.Close()
+
+				shell, err := GetSSHShell(sshShellClient)
+				if err != nil {
+					return err
+				}
+
+				_, err = shell.Exec("DEBIAN_FRONTEND=noninteractive apt-get update -y --force-yes -qq")
+				_, err = shell.Exec("DEBIAN FRONTEND=noninteractive apt-get upgrade -y --force-yes -qq")
+				_, err = shell.Exec("DEBIAN FRONTEND=noninteractive apt-get install -y --force-yes git wget curl")
+
+				if runtime.GOOS != "linux" && !testingRun {
+					_, err = shell.Exec(fmt.Sprintf("wget -O /usr/bin/ham \"%s\"", HAM_LINUX_BINARY_URL))
+				} else {
+					err = helpers.SFTPCopyFileToRemote(sftpClient, "/usr/bin/ham", os.Args[0])
+				}
+				_, err = shell.Exec("chmod a+x /usr/bin/ham")
+
+				if err != nil {
+					return err
+				}
+
+				// Make required directories
+				_, err = shell.Exec("mkdir -p /ham-build")
+				_, err = shell.Exec("mkdir -p /ham-recipe")
+				_, err = shell.Exec("mkdir -p /ham-files")
+
+				if err != nil {
+					return err
+				}
+
+				// Upload recipe repo (with SCP) or make the server download it.
+				if usedGit {
+					_, err = shell.Exec("rm -rf /ham-recipe")
+					_, err = shell.Exec("cd /")
+					_, err = shell.Exec(fmt.Sprintf("git clone %s ham-recipe", gitUrl))
+					_, err = shell.Exec("cd ham-recipe")
+					if gitBranch != "" {
+						_, err = shell.Exec(fmt.Sprintf("git checkout -b %s", gitBranch))
+					}
+				} else {
+
+					// TODO: Make sure that it does not depend on trailing / for
+					// local recipes
+					rootDir := dir
+
+					walker := func(path string, info os.FileInfo, err error) error {
+						if err != nil {
+							return err
+						}
+
+						destFile := strings.ReplaceAll(path, rootDir, "")
+
+						if info.IsDir() {
+							return sftpClient.MkdirAll(fmt.Sprintf("/ham-recipe/%s", destFile))
+						}
+
+						return helpers.SFTPCopyFileToRemote(sftpClient, fmt.Sprintf("/ham-recipe/%s", destFile), path)
+					}
+
+					err = filepath.Walk(rootDir, walker)
 					if err != nil {
 						return err
 					}
 				}
 
-				// Keep this condition simple since this is an important
-				// decision by the user.
-				if confirmCreate == false {
-					return errors.New("User Declined to Create a New Server.")
-				} else {
-					// TODO: Create a server here
+				if err != nil {
+					return err
 				}
+
+				// Upload files from vars.json to server using SFTP securely.
+				for srcFilePath, destFilePath := range fileUploads {
+					err = helpers.SFTPCopyFileToRemote(sftpClient, destFilePath, srcFilePath)
+					if err != nil {
+						return err
+					}
+				}
+
+				// Upload the vars.json file
+				err = helpers.SFTPCopyFileToRemote(sftpClient, fmt.Sprintf("/ham-files/vars.json"), varsFilePath)
+				if err != nil {
+					return err
+				}
+
+				// Start HAM build since we newly created this server
+				keep := ""
+				if argv.KeepServer || argv.KeepServerOnBuildFail {
+					keep = "--keep-server"
+				}
+				buildCommand := fmt.Sprintf("ham build %s --sum %s --recipe /ham-recipe --vars /ham-files/vars.json",
+					keep,
+					hf.SHA256Sum)
+
+				_, err = shell.Exec(buildCommand)
+				if err != nil {
+					return err
+				}
+
+				sftpClient.Close()
+				sshSftpClient.Close()
+				sshShellClient.Close()
 			}
 
 			tries := 0
 			for {
-				sshCode, err := trackRemoteServerProgress("[::1]:22", config.SSHPrivateKey)
+				sshCode, err := trackRemoteServerProgress(ip6Addr, config.SSHPrivateKey)
 
 				// Check for SSH Shell Code for More
 				// accurate errors.
@@ -516,14 +716,6 @@ func trackRemoteServerProgress(host string, sshPrivateKey string) (SSHShellCode,
 	if err != nil {
 		return SSH_SHELL_CANNOT_GET_SESSION, err
 	}
-
-	/*
-		This should be executed at the build.
-		_, _ = shell.Exec("DEBIAN_FRONTEND=noninteractive apt-get update -y --force-yes -qq")
-		_, _ = shell.Exec("DEBIAN FRONTEND=noninteractive apt-get upgrade -y --force-yes -qq")
-		*
-		*
-	*/
 
 	err = runProgressTeaProgram(shell)
 	if err != nil {

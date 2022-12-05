@@ -2,11 +2,10 @@ title: "Lineage OS 18.1 (Enchilada) (Unsigned)"
 version: "0.0.1"
 
 args:
-  - id: android_certs_zip
-    prompt: "Path to Android Certificates in Un-Encrypted ZIP"
-    required: true 
-    type: file
-
+  # - id: android_certs_zip
+  #  prompt: "Path to Android Certificates in Un-Encrypted ZIP"
+  #  required: true 
+  #  type: file
   - id: telegram_key
     prompt: "Telegram API Key"
     type: secret
