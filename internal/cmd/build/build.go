@@ -192,13 +192,13 @@ func NewCommand() *cli.Command {
 				// from the yaml file too. This just makes life
 				// so much easier when building a striaght forward
 				// build from lineage.
-				dep_install_command := fmt.Sprintf("apt-get install -y --force-yes -qq %s",
+				dep_install_command := fmt.Sprintf("apt install -y -qq %s",
 					strings.Join(deps, " "))
 
 				commands := []string{
 					"export DEBIAN_FRONTEND=noninteractive",
-					"apt-get update -y --force-yes -qq",
-					"apt-get upgrade -y --force-yes -qq",
+					"apt update -y -qq",
+					"apt upgrade -y -qq",
 					dep_install_command,
 					"curl https://storage.googleapis.com/git-repo-downloads/repo > /usr/bin/repo",
 					"chmod a+x /usr/bin/repo",
