@@ -21,15 +21,15 @@ jobs:
         mv ham ham-linux-amd64
 
     - uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./ham-linux-amd64
-          tag: continuous
-          overwrite: true
-          file_glob: true
-          prerelease: true
-          release_name: "Continuous Builds"
-          body: "Continuous builds for Hetzner Android Make"
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ./ham-linux-amd64
+        tag: continuous
+        overwrite: true
+        file_glob: true
+        prerelease: true
+        release_name: "Continuous Builds"
+        body: "Continuous builds for Hetzner Android Make"
 
  
 
