@@ -1,0 +1,20 @@
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release-linux-amd64:
+    name: Continuous Build Linux/AMD64
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v3
+    - uses: wangyoucao577/go-release-action@v1.34
+      with:
+        build_command: "go build -ldflags '-s -w -X main.AppVersion=1-alpha -X main.GitCommit=continuous' cmd/ham/ham.go"
+        overwrite: true
+        release_name: Continuous Builds
+        release_tag: continuous
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        goos: linux
+        goarch: amd64
