@@ -9,12 +9,27 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
     - uses: actions/checkout@v3
-    - uses: wangyoucao577/go-release-action@v1.34
+    - uses: actions/setup-go@v3
       with:
-        ldflags: -s -w -X main.AppVersion=1-alpha -X main.GitCommit=continuous 
-        overwrite: true
-        release_name: Continuous Builds
-        release_tag: continuous
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: linux
-        goarch: amd64
+        go-version-file: 'go.mod'
+      run: |
+        export COMMIT=$(echo $GITHUB_SHA | cut -c -7)
+        go mod tidy
+        go mod verify
+        go build -ldflags "-s -w -X main.AppVersion=1-alpha -X main.GitCommit=$COMMIT" cmd/ham/ham.go
+        strip ham
+        mv ham ham-linux-amd64
+
+    - uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ./ham-linux-amd64
+          tag: continuous
+          overwrite: true
+          file_glob: true
+          prerelease: true
+          release_name: "Continuous Builds"
+          body: "Continuous builds for Hetzner Android Make"
+
+ 
+
