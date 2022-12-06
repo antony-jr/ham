@@ -23,7 +23,7 @@ jobs:
         mv ham ham-linux-amd64
 
     - name: Delete Continuous Tag and Release
-    - uses: dev-drprasad/delete-tag-and-release@v0.2.0
+      uses: dev-drprasad/delete-tag-and-release@v0.2.0
       with:
         delete_release: true
         tag_name: continuous
