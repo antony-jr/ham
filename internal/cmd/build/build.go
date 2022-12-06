@@ -192,7 +192,7 @@ func NewCommand() *cli.Command {
 				// from the yaml file too. This just makes life
 				// so much easier when building a striaght forward
 				// build from lineage.
-				dep_install_command := fmt.Sprintf("apt install -y -qq %s",
+				dep_install_command := fmt.Sprintf("DEBIAN_FRONTEND=noninteractive apt install -y -qq %s",
 					strings.Join(deps, " "))
 
 				commands := []string{
@@ -210,6 +210,15 @@ func NewCommand() *cli.Command {
 					"echo 'export CCACHE_EXEC=/usr/bin/ccache' >> ~/.profile",
 					"ccache -M 50G",
 					"ccache -o compression=true",
+				}
+
+				for varName, varValue := range vars {
+					varName = strings.ToUpper(varName)
+					varName = strings.ReplaceAll(varName, " ", "_")
+					varName = strings.ReplaceAll(varName, "-", "_")
+					varValue = strings.ReplaceAll(varValue, "\"", "\\\"")
+					cmd := fmt.Sprintf("echo 'export %s=\"%s\"' >> ~/.bashrc", varName, varValue)
+					commands = append(commands, cmd)
 				}
 
 				status.Status = "Installing Dependencies"
@@ -234,44 +243,6 @@ func NewCommand() *cli.Command {
 						return checkErrorStatus(&status, errors.New("Prebuild Failed ("+err.Error()+")"))
 					}
 
-				}
-
-				// Set Variables for the Build Given
-				// by the User.
-				count := 0
-				for varName, varValue := range vars {
-					varName = strings.ToUpper(varName)
-					varName = strings.ReplaceAll(varName, " ", "_")
-					varName = strings.ReplaceAll(varName, "-", "_")
-					varValue = strings.ReplaceAll(varValue, "\"", "\\\"")
-					cmd := fmt.Sprintf("echo 'export %s=\"%s\"' >> ~/.bashrc", varName, varValue)
-					err := term.ExecTerminal(count, cmd)
-					if err != nil {
-						hamSSHKey, _ = helpers.UpdateSSHKeyLabel(&client.SSHKey, hamSSHKey, serverName, "failed")
-						return checkErrorStatus(&status, errors.New("Prebuild Failed (Parsing Vars)"))
-					}
-
-					err = term.WaitTerminal(count)
-					if err != nil {
-						hamSSHKey, _ = helpers.UpdateSSHKeyLabel(&client.SSHKey, hamSSHKey, serverName, "failed")
-						return checkErrorStatus(&status, errors.New("Prebuild Failed (Parsing Vars)"))
-					}
-
-					count++
-					cmd = fmt.Sprintf("echo 'export %s=\"%s\"' >> ~/.profile", varName, varValue)
-					err = term.ExecTerminal(count, cmd)
-					if err != nil {
-						hamSSHKey, _ = helpers.UpdateSSHKeyLabel(&client.SSHKey, hamSSHKey, serverName, "failed")
-						return checkErrorStatus(&status, errors.New("Prebuild Failed (Parsing Vars)"))
-					}
-
-					err = term.WaitTerminal(count)
-					if err != nil {
-						hamSSHKey, _ = helpers.UpdateSSHKeyLabel(&client.SSHKey, hamSSHKey, serverName, "failed")
-						return checkErrorStatus(&status, errors.New("Prebuild Failed (Parsing Vars)"))
-					}
-
-					count++
 				}
 
 				term.CloseTerminal()

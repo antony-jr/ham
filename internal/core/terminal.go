@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -14,7 +15,6 @@ import (
 )
 
 type Terminal struct {
-	cmd   *exec.Cmd
 	term  *os.File
 	index int
 	uid   string
@@ -25,14 +25,18 @@ func NewTerminal(UniqueID string) (Terminal, error) {
 
 	t.uid = UniqueID
 
-	t.cmd = exec.Command("bash")
-	ptmx, err := pty.Start(t.cmd)
+	cmd := exec.Command("bash")
+	ptmx, err := pty.Start(cmd)
 	if err != nil {
 		return t, err
 	}
 	t.term = ptmx
 
 	file, err := os.Create(fmt.Sprintf("/tmp/%s.ham.command.status", UniqueID))
+	if err != nil {
+		return t, err
+	}
+	logFile, err := os.Create(fmt.Sprintf("/tmp/%s.ham.stdout", UniqueID))
 	if err != nil {
 		return t, err
 	}
@@ -45,6 +49,11 @@ func NewTerminal(UniqueID string) (Terminal, error) {
 	// t.term.Write([]byte(fmt.Sprintf("trap \"echo $HAM_CMD_INDEX' failed' > /tmp/%s.ham.command.status\" ERR \n", UniqueID)))
 	t.term.Write([]byte(fmt.Sprintf("trap \"env | grep HAM_CMD_INDEX | cut -d'=' -f2 | sed 's/$/ failed/'|cat > /tmp/%s.ham.command.status\" ERR \n", UniqueID)))
 	t.term.Write([]byte(fmt.Sprintf("trap \"env | grep HAM_CMD_INDEX | cut -d'=' -f2 | sed 's/$/ failed/'|cat > /tmp/%s.ham.command.status\" EXIT \n", UniqueID)))
+
+	// Copy pty stdout to a log file for debugging.
+	go func() {
+		_, _ = io.Copy(logFile, t.term)
+	}()
 
 	return t, nil
 }
