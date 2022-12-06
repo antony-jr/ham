@@ -160,7 +160,7 @@ func UpdateSSHKeyLabel(sclient *hcloud.SSHKeyClient, sshKey *hcloud.SSHKey, key 
 }
 
 func ReadVarsJsonFile(path string) (map[string]string, error) {
-	var ret map[string]string
+	ret := map[string]string{}
 	source, err := ioutil.ReadFile(path)
 	if err != nil {
 		return ret, err
