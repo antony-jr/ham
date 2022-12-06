@@ -27,7 +27,7 @@ func GetSFTPClient(conn *ssh.Client) (*sftp.Client, error) {
 }
 
 func SFTPCopyFileToRemote(client *sftp.Client, dest string, source string) error {
-	f, err := client.OpenFile(dest, os.O_WRONLY|os.O_CREATE)
+	f, err := client.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		return err
 	}

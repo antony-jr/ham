@@ -14,18 +14,6 @@ import (
 	"github.com/kyokomi/emoji/v2"
 )
 
-type ErrorStatusT struct {
-   error bool `json:"error"`
-   message string `json:"message"`
-}
-
-type ProgressT struct {
-	error      bool   `json:"error"`
-	status     string `json:"status"`
-	progress   string `json:"progress"`
-	percentage int    `json:"percentage"`
-}
-
 type model struct {
 	shell      *SSHShellContext
 	percentage int
@@ -80,31 +68,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case statusJson:
 		raw_json := []byte(statusJson(msg))
-		var state ProgressT
-	
-		err := json.Unmarshal(raw_json, &state)
+		var result map[string]interface{}
+
+		err := json.Unmarshal(raw_json, &result)
 		if err != nil {
-		   var errResp ErrorStatusT
-		   err := json.Unmarshal(raw_json, &errResp)
-		   if err != nil {
-		   	return m, tea.Batch(
+			return m, tea.Batch(
 				tea.Printf(" %sCannot Get Progress from Remote. (%s)\n", crossMark, err.Error()),
 				withErrorQuit(m.shell, SSH_SHELL_MALFORMED_JSON),
 			)
-		    } else {
-		       if errResp.error {
+		}
+
+		isErr := result["error"].(interface{}).(bool)
+
+		if isErr {
+			erMsg := result["message"].(interface{}).(string)
+			m.prog = "Build Failed"
 			return m, tea.Batch(
-				tea.Printf(" %s%s", errResp.message, crossMark),
+				tea.Printf(" %s%s", crossMark, erMsg),
 				tea.Printf(" %sBuild Failed.\n", crossMark),
 				withErrorQuit(m.shell, SSH_SHELL_HAM_STATUS_ERRORED),
 			)
 		}
 
-		    }
-		}
-
-		m.prog = state.progress
-		m.percentage = state.percentage
+		m.prog = result["progress"].(interface{}).(string)
+		m.percentage = int(result["percentage"].(interface{}).(float64))
 
 		if m.percentage == 100 {
 			// Everything's been installed. We're done!
@@ -117,7 +104,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, tea.Batch(
 			progressCmd,
-			tea.Printf(" %s %s", checkMark, m.prog),
+			// tea.Printf(" %s %s", checkMark, m.prog),
 			refreshProgress(m.shell),
 		)
 	case spinner.TickMsg:
@@ -169,7 +156,7 @@ func withErrorQuit(shell *SSHShellContext, code SSHShellCode) tea.Cmd {
 }
 
 func refreshProgress(shell *SSHShellContext) tea.Cmd {
-	d := time.Second * time.Duration(5)
+	d := time.Second * time.Duration(2)
 	return tea.Tick(d, func(t time.Time) tea.Msg {
 		out, err := shell.Exec("ham build-status | cat |  grep -a Status | cut -c 10-")
 		if err != nil {
@@ -178,7 +165,7 @@ func refreshProgress(shell *SSHShellContext) tea.Cmd {
 		}
 
 		if len(out) == 0 {
-			return statusJson("{error: true, message: \"Remote Server not Responding Build Status\"}")
+			return statusJson("{\"error\": true, \"message\": \"Remote Server not Responding Build Status\"}")
 		}
 		return statusJson(out)
 	})

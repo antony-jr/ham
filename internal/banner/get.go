@@ -72,6 +72,12 @@ func GetRecipeBanner(name string, ver string, hash string) {
 	fmt.Print(out)
 }
 
+func GetCmdProgressBanner() {
+	in := "# Progress\n"
+	out, _ := glamour.Render(in, "auto")
+	fmt.Print(out)
+}
+
 func GetServerPriceInformationBanner(name string, price float64) {
 	in := "# Price Information\n"
 	in += "Server Name: %s\n\n"

@@ -37,8 +37,9 @@ type getT struct {
 	KeepServerOnConnectFail bool   `cli:"s,keep-server-conn-fail" usage:"Don't Destroy the Remote Server even if we can't SSH into it."`
 	KeepServerOnTrackFail   bool   `cli:"t,keep-server-track-fail" usage:"Don't Destroy the Remote Server even if Tracking Fails."`
 	KeepServerOnBuildFail   bool   `cli:"b,keep-server-build-fail" usage:"Don't Destroy the Remote Server even if Build Fails. (Use with Caution)"`
+	TestingBinary           string `cli:"e,testing-binary" usage:"Path to ham binary to use in the Remote Server during Testing. (Developer)"`
 	TestingSSHIP            string `cli:"i,testing-ssh-ip" usage:"Run a Test Run without Creating Servers and Use the given IP as Build Server. (Developer)"`
-	DontInitTesting		bool   `cli:"m,testing-no-init" usage:"When under Test Run, Don't Initialize the Server, rather Start Tracking. (Developer)"`
+	DontInitTesting         bool   `cli:"m,testing-no-init" usage:"When under Test Run, Don't Initialize the Server, rather Start Tracking. (Developer)"`
 	Force                   bool   `cli:"f,force" usage:"Force start a build even if the recipe was built Already."`
 }
 
@@ -305,7 +306,7 @@ Local Recipe:
 			}
 
 			if testingRun && argv.DontInitTesting {
-			   serverRunning = true
+				serverRunning = true
 			}
 
 			// This is a safety net.
@@ -391,8 +392,8 @@ Local Recipe:
 
 				// Build the vars.json file and get ready to upload
 				// to the server once created
-				fileUploads := make(map[string]string)
-				varsJson := make(map[string]string)
+				fileUploads := map[string]string{}
+				varsJson := map[string]string{}
 				fileIndex := 0
 				for key, val := range buildVars.Vars {
 					if val.Type == core.VARIABLE_TYPE_VALUE ||
@@ -478,10 +479,14 @@ Local Recipe:
 				_, err = shell.Exec("apt-get upgrade -y -qq")
 				_, err = shell.Exec("apt-get install -y -qq git wget curl")
 
-				if runtime.GOOS != "linux" && !testingRun {
+				if !testingRun {
 					_, err = shell.Exec(fmt.Sprintf("wget -O /usr/bin/ham \"%s\"", HAM_LINUX_BINARY_URL))
 				} else {
-					err = helpers.SFTPCopyFileToRemote(sftpClient, "/usr/bin/ham", os.Args[0])
+					if len(argv.TestingBinary) != 0 {
+						err = helpers.SFTPCopyFileToRemote(sftpClient, "/usr/bin/ham", argv.TestingBinary)
+					} else {
+						err = helpers.SFTPCopyFileToRemote(sftpClient, "/usr/bin/ham", os.Args[0])
+					}
 				}
 				_, err = shell.Exec("chmod a+x /usr/bin/ham")
 
@@ -492,11 +497,11 @@ Local Recipe:
 				// Copy HAM Configuration File
 				configFilePath, err := helpers.ConfigFilePath()
 				if err != nil {
-				   return err
+					return err
 				}
 				err = helpers.SFTPCopyFileToRemote(sftpClient, "/root/.ham.json", configFilePath)
 				if err != nil {
-				   return err
+					return err
 				}
 
 				// Make required directories
@@ -580,7 +585,7 @@ Local Recipe:
 				sshShellClient.Close()
 			}
 
-			time.Sleep(time.Second * time.Duration(10))
+			banner.GetCmdProgressBanner()
 
 			tries := 0
 			for {
@@ -614,17 +619,16 @@ Local Recipe:
 						time.Sleep(time.Second * time.Duration(5))
 						continue
 					} else if sshCode == SSH_SHELL_MALFORMED_JSON {
+						tries++
+						if tries < 20 {
+							time.Sleep(time.Second * time.Duration(10))
+							continue
+						}
+
 						if argv.KeepServer || argv.KeepServerOnTrackFail {
 							destroyServer = false
 							banner.GetMalformedJSONBanner(serverName)
 							return errors.New("Malformed JSON from Build Server, But Server is Kept and Still Running.")
-						}
-
-						tries++
-						if tries < 10 {
-							fmt.Println(" Retrying in 10 mins... ")
-							time.Sleep(time.Minute * time.Duration(10))
-							continue
 						}
 
 						delErr := helpers.TryDeleteServer(&client.Server, serverName, 20, 5)
