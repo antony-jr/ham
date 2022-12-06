@@ -296,7 +296,7 @@ func NewCommand() *cli.Command {
 				}
 
 				// Avoid Premature Close When Tracking
-				percent := int((float32(index) / float32(buildLen))) * 100.00
+				percent := int((float32(index) * 100.0) / float32(buildLen))
 				if percent >= 1.0 {
 					percent = percent - 1.0
 				}

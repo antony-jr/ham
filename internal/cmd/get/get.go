@@ -695,6 +695,7 @@ Local Recipe:
 						for serv, buildStatus := range labels {
 							if serv == serverName {
 								if buildStatus == "successful" {
+									destroyServer = true
 									fmt.Println("Build Successful")
 								} else if buildStatus == "inprogress" {
 									fmt.Println("Build in Progress")

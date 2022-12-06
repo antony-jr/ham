@@ -22,5 +22,4 @@ build:
 
 post_build:
   - echo "Finished" > lineage/build.txt
-  - sleep 100
   # Upload your files here.

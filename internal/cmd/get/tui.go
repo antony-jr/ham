@@ -50,7 +50,7 @@ func newModel(shell *SSHShellContext) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(tea.Println(" Tracking Remote Build..."), m.spinner.Tick, refreshProgress(m.shell))
+	return tea.Batch(tea.Println("  Tracking Remote Build..."), m.spinner.Tick, refreshProgress(m.shell))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -96,7 +96,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.percentage == 100 {
 			// Everything's been installed. We're done!
 			m.done = true
-			return m, tea.Batch(tea.Printf(" %s", raw_json))
+
+			return m, tea.Batch(
+				tea.Printf("  %s Remote Build Completed\n", checkMark),
+				withErrorQuit(m.shell, SSH_SHELL_NO_ERROR),
+			)
 		}
 
 		// Update progress bar
@@ -126,12 +130,12 @@ func (m model) View() string {
 	w := lipgloss.Width(fmt.Sprintf("%d", n))
 
 	if m.done {
-		return doneStyle.Render(fmt.Sprintf("Done!\n"))
+		return ""
 	}
 
 	pkgCount := fmt.Sprintf(" %*d/%*d", w, m.percentage, w, n)
 
-	spin := " " + m.spinner.View() + " "
+	spin := "  " + m.spinner.View() + " "
 	prog := m.progress.View()
 	cellsAvail := max(0, m.width-lipgloss.Width(spin+prog+pkgCount))
 
