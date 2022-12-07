@@ -22,11 +22,8 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 )
 
-// TODO: Update this once made a public build available. We need
-// to point this url to the latest linux build for the server to
-// use.
 const (
-	HAM_LINUX_BINARY_URL string = "https://github.com/antony-jr/ham/releases/latest"
+	HAM_LINUX_BINARY_URL string = "https://github.com/antony-jr/ham/releases/download/stable/ham-build-linux-amd64"
 )
 
 type getT struct {

@@ -54,14 +54,6 @@ jobs:
         export GIT_COMMIT=$(echo $GITHUB_SHA | cut -c -7)
         make 
 
-    - name: Delete Continuous Tag and Release
-      uses: dev-drprasad/delete-tag-and-release@v0.2.0
-      with:
-        delete_release: true
-        tag_name: continuous
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
     - name: Upload Binary
       uses: svenstaro/upload-release-action@v2
       with:
