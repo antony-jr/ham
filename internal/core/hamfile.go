@@ -23,7 +23,7 @@ type HAMFile struct {
 	}
 
 	Build []struct {
-		Title string `yaml:"title"`
+		Title string `yaml:"name"`
 		Cmd   string `yaml:"run"`
 	}
 

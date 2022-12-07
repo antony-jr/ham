@@ -11,21 +11,27 @@ args:
     type: secret
 
 build:
-  - title: "Making Directory"
+  - name: Making Directory
     run: mkdir lineage || true
-  - title: "Change Directory"
+
+  - name: Change Directory
     run: cd lineage
-  - title: "Echoing file"
+
+  - name: Echoing File
     run: echo 'Hello World' > test.txt
+
   - title: Test
     run: echo "$PATH" > env.txt
+
   - title: Use Args
     run: |
       echo "$TELEGRAM_KEY" > key.txt
       sleep 20
       echo "Something"
+      
   - title: Running Lineage OS build
     run: sleep 30
+
   - title: Signing APKs and Build
     run: sleep 20
 
