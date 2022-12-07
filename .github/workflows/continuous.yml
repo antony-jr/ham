@@ -4,9 +4,10 @@ on:
       - main
 
 jobs:
-  release-linux-amd64:
-    name: Continuous Build Linux/AMD64
+  stable-build:
+    name: Stable Build
     runs-on: ubuntu-18.04
+    if: "contains(github.event.head_commit.message, '[RELEASE STABLE]')"
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v3
@@ -15,12 +16,43 @@ jobs:
    
     - name: Go Build 
       run: |
-        export COMMIT=$(echo $GITHUB_SHA | cut -c -7)
-        go mod tidy
-        go mod verify
-        go build -ldflags "-s -w -X main.AppVersion=1-alpha -X main.GitCommit=$COMMIT" cmd/ham/ham.go
-        strip ham
-        mv ham ham-linux-amd64
+        export GIT_COMMIT=$(echo $GITHUB_SHA | cut -c -7)
+        make 
+
+    - name: Delete Continuous Tag and Release
+      uses: dev-drprasad/delete-tag-and-release@v0.2.0
+      with:
+        delete_release: true
+        tag_name: stable
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Binary
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ./release/*
+        tag: stable
+        overwrite: true
+        file_glob: true
+        prerelease: false
+        release_name: "Stable Builds"
+        body: "Hetzner Android Make Production Builds for the Users"
+
+  continuous-build:
+    name: Continuous Build
+    runs-on: ubuntu-18.04
+    if: "!contains(github.event.head_commit.message, '[RELEASE STABLE]')"
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version-file: 'go.mod'
+   
+    - name: Go Build 
+      run: |
+        export GIT_COMMIT=$(echo $GITHUB_SHA | cut -c -7)
+        make 
 
     - name: Delete Continuous Tag and Release
       uses: dev-drprasad/delete-tag-and-release@v0.2.0
@@ -34,13 +66,10 @@ jobs:
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: ./ham-linux-amd64
+        file: ./release/*
         tag: continuous
         overwrite: true
         file_glob: true
         prerelease: true
         release_name: "Continuous Builds"
         body: "Continuous builds for Hetzner Android Make"
-
- 
-

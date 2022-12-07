@@ -1,11 +1,10 @@
-package cli
+package build_cli
 
 import (
 	"github.com/mkideal/cli"
 	"os"
 
-	"github.com/antony-jr/ham/internal/cmd/get"
-	"github.com/antony-jr/ham/internal/cmd/initialize"
+	"github.com/antony-jr/ham/internal/cmd/build"
 )
 
 type rootT struct {
@@ -15,7 +14,7 @@ type rootT struct {
 
 func Run() error {
 	var root = &cli.Command{
-		Name: "Hetzner Android Make (HAM)",
+		Name: "Hetzner Android Make (HAM) Build",
 		Argv: func() interface{} { return new(rootT) },
 		Fn: func(ctx *cli.Context) error {
 			argv := ctx.Argv().(*rootT)
@@ -31,7 +30,8 @@ func Run() error {
 	return cli.Root(
 		root,
 		cli.Tree(help),
-		cli.Tree(initialize.NewCommand()),
-		cli.Tree(get.NewCommand()),
+		cli.Tree(build.NewCommand()),
+		cli.Tree(build.NewStatusCommand()),
+		cli.Tree(build.NewHaltCommand()),
 	).Run(os.Args[1:])
 }

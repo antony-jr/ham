@@ -38,7 +38,7 @@ type getT struct {
 	KeepServerOnConnectFail bool   `cli:"s,keep-server-conn-fail" usage:"Don't Destroy the Remote Server even if we can't SSH into it."`
 	KeepServerOnTrackFail   bool   `cli:"t,keep-server-track-fail" usage:"Don't Destroy the Remote Server even if Tracking Fails."`
 	KeepServerOnBuildFail   bool   `cli:"b,keep-server-build-fail" usage:"Don't Destroy the Remote Server even if Build Fails. (Use with Caution)"`
-	TestingBinary           string `cli:"e,testing-binary" usage:"Path to ham binary to use in the Remote Server during Testing. (Developer)"`
+	TestingBinary           string `cli:"e,testing-binary" usage:"Path to ham-build binary to use in the Remote Server during Testing. (Developer)"`
 	TestingSSHIP            string `cli:"i,testing-ssh-ip" usage:"Run a Test Run without Creating Servers and Use the given IP as Build Server. (Developer)"`
 	DontInitTesting         bool   `cli:"m,testing-no-init" usage:"When under Test Run, Don't Initialize the Server, rather Start Tracking. (Developer)"`
 	Force                   bool   `cli:"f,force" usage:"Force start a build even if the recipe was built Already."`
@@ -142,6 +142,10 @@ Local Recipe:
 			if testingRun {
 				if runtime.GOOS != "linux" {
 					return errors.New("OS Not Supported for Testing. Get a Linux Machine to Develop HAM.")
+				}
+
+				if len(argv.TestingBinary) == 0 {
+					return errors.New("Testing Binary Path Not Given, Please give a Testing Binary Path.")
 				}
 			}
 
@@ -502,11 +506,7 @@ Local Recipe:
 				if !testingRun {
 					_, err = shell.Exec(fmt.Sprintf("wget -O /usr/bin/ham \"%s\"", HAM_LINUX_BINARY_URL))
 				} else {
-					if len(argv.TestingBinary) != 0 {
-						err = helpers.SFTPCopyFileToRemote(sftpClient, "/usr/bin/ham", argv.TestingBinary)
-					} else {
-						err = helpers.SFTPCopyFileToRemote(sftpClient, "/usr/bin/ham", os.Args[0])
-					}
+					err = helpers.SFTPCopyFileToRemote(sftpClient, "/usr/bin/ham", argv.TestingBinary)
 				}
 				_, err = shell.Exec("chmod a+x /usr/bin/ham")
 

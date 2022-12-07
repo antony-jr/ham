@@ -24,7 +24,7 @@ func Header(Version string, Commit string) {
 	tagLine.Println(" Hetzner Android Make.")
 
 	copyright := color.New(color.FgCyan).Add(color.Bold)
-	copyright.Println("Copyright (c) 2022, D. Antony J.R <antonyjr@protonmail.com>.")
+	copyright.Println("Copyright (c) 2022, D. Antony J.R <antonyjr@pm.me>.")
 	copyright.Println("The BSD 3-Clause \"New\" or \"Revised\" License.")
 	fmt.Print("\n")
 }

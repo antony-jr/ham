@@ -145,7 +145,7 @@ func NewCommand() *cli.Command {
 
 			// Install Dependencies for LineageOS build/AOSP
 			{
-				term, err := core.NewTerminal(hf.SHA256Sum + "-prebuild")
+				term, err := NewTerminal(hf.SHA256Sum + "-prebuild")
 				if err != nil {
 					hamSSHKey, _ = helpers.UpdateSSHKeyLabel(&client.SSHKey, hamSSHKey, serverName, "failed")
 					return checkErrorStatus(&status, err)
@@ -249,7 +249,7 @@ func NewCommand() *cli.Command {
 			}
 
 			// Start Executing Recipe Commands.
-			terminal, err := core.NewTerminal(hf.SHA256Sum)
+			terminal, err := NewTerminal(hf.SHA256Sum)
 			if err != nil {
 				hamSSHKey, _ = helpers.UpdateSSHKeyLabel(&client.SSHKey, hamSSHKey, serverName, "failed")
 				return checkErrorStatus(&status, err)
@@ -312,7 +312,7 @@ func NewCommand() *cli.Command {
 			status.Status = "Post Build"
 			status.Title = "Running Post Build"
 
-			pbTerminal, err := core.NewTerminal(hf.SHA256Sum + "-postbuild")
+			pbTerminal, err := NewTerminal(hf.SHA256Sum + "-postbuild")
 			if err != nil {
 				hamSSHKey, _ = helpers.UpdateSSHKeyLabel(&client.SSHKey, hamSSHKey, serverName, "failed")
 				return checkErrorStatus(&status, err)

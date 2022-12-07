@@ -1,4 +1,4 @@
-package core
+package build
 
 import (
 	"errors"
@@ -109,7 +109,7 @@ func (Term *Terminal) ExecTerminal(Index int, Command string) error {
 	}
 
 	if len(Command) == 0 {
-	   return errors.New(fmt.Sprintf("Empty Command at Entry %d", Index))
+		return errors.New(fmt.Sprintf("Empty Command at Entry %d", Index))
 	}
 
 	parts := strings.Split(string(status[:]), " ")
