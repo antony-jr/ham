@@ -59,8 +59,25 @@ func NewTerminal(UniqueID string) (Terminal, error) {
 }
 
 func (Term *Terminal) WaitTerminal(Index int) error {
+	loc, err := time.LoadLocation("UTC")
+	if err != nil {
+		return err
+	}
+	started := time.Now().In(loc)
 	for {
 		time.Sleep(1 * time.Second)
+
+		// Timeout if a we wait for a single command
+		// more than 8 hours.
+		now := time.Now().In(loc)
+		diff := now.Sub(started)
+		hours := int(diff.Hours())
+
+		// Error out if difference is 8 hours or more.
+		if hours >= 8 {
+			return errors.New(fmt.Sprintf("Commad Timeout at Entry %d", Index))
+		}
+
 		status, err := ioutil.ReadFile(fmt.Sprintf("/tmp/%s.ham.command.status", Term.uid))
 		if err != nil {
 			return err
@@ -75,7 +92,7 @@ func (Term *Terminal) WaitTerminal(Index int) error {
 
 		if idx == Index {
 			if !strings.Contains(wStatus, "success") {
-				return errors.New("Command Failed")
+				return errors.New(fmt.Sprintf("Command Failed at Entry %d", Index))
 			}
 
 			return nil
@@ -107,6 +124,8 @@ func (Term *Terminal) ExecTerminal(Index int, Command string) error {
 	}
 
 	Term.term.Write([]byte(fmt.Sprintf("export HAM_CMD_INDEX=%d \n", Index)))
+
+	Command = strings.TrimSuffix(Command, "\\n")
 	Term.term.Write([]byte(fmt.Sprintf("%s ; echo $HAM_CMD_INDEX' success' > /tmp/%s.ham.command.status\n", Command, Term.uid)))
 
 	time.Sleep(1 * time.Second)
