@@ -102,7 +102,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			)
 		}
 
-		progressCmd := m.progress.SetPercent(percent)
+		progressCmd := m.progress.SetPercent(percent / 100.0)
 
 		return m, tea.Batch(
 			progressCmd,
