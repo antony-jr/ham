@@ -33,6 +33,7 @@ type getT struct {
 	cli.Helper
 
 	NoConfirm               bool   `cli:"n,no-confirm" usage:"Auto Confirm 'Yes' to all questions for the user. (Use with Caution)"`
+	Answers                 string `cli:"a,answers" usage:"Path to answers.json to Answer required Questions."`
 	KeepServer              bool   `cli:"k,keep-server" usage:"Don't Destroy the Remote Server on any error."`
 	KeepServerOnConnectFail bool   `cli:"s,keep-server-conn-fail" usage:"Don't Destroy the Remote Server even if we can't SSH into it."`
 	KeepServerOnTrackFail   bool   `cli:"t,keep-server-track-fail" usage:"Don't Destroy the Remote Server even if Tracking Fails."`
@@ -354,6 +355,15 @@ Local Recipe:
 				if len(hf.Args) != 0 {
 					banner.GetQuestionBanner()
 
+					// Get Answers if Provided
+					answers := map[string]string{}
+					if len(argv.Answers) != 0 {
+						answers, err = helpers.ReadVarsJsonFile(argv.Answers)
+						if err != nil {
+							return err
+						}
+					}
+
 					for _, arg := range hf.Args {
 						placeholder := "Value"
 						required := false
@@ -370,6 +380,16 @@ Local Recipe:
 
 						if arg.Required != nil {
 							required = *arg.Required
+						}
+
+						answerValue, answerOk := answers[arg.ID]
+						if answerOk {
+							buildVars.PutVar(arg.ID, answerValue, valueType)
+							continue
+						}
+
+						if !required && argv.NoConfirm {
+							continue
 						}
 
 						questionResponse := NewQuestionResponse(required, valueType == core.VARIABLE_TYPE_SECRET)
@@ -508,6 +528,7 @@ Local Recipe:
 				_, err = shell.Exec("mkdir -p /ham-build")
 				_, err = shell.Exec("mkdir -p /ham-recipe")
 				_, err = shell.Exec("mkdir -p /ham-files")
+				_, err = shell.Exec("mkdir -p /ham-output")
 
 				if err != nil {
 					return err
@@ -566,23 +587,20 @@ Local Recipe:
 					return err
 				}
 
-				// Start HAM build since we newly created this server
-				keep := ""
-				if argv.KeepServer || argv.KeepServerOnBuildFail {
-					keep = "--keep-server"
-				}
-				buildCommand := fmt.Sprintf("ham build %s --sum %s --recipe /ham-recipe --vars /ham-files/vars.json",
-					keep,
-					hf.SHA256Sum)
-
-				_, err = shell.Exec(buildCommand)
-				if err != nil {
-					return err
-				}
-
 				sftpClient.Close()
 				sshSftpClient.Close()
 				sshShellClient.Close()
+			}
+
+			// Check if build is running on the remote server
+			// if not then start it now.
+			startEr := startHamBuildOnRemote(ip6Addr,
+				config.SSHPrivateKey,
+				hf.SHA256Sum,
+				argv.KeepServer || argv.KeepServerOnBuildFail)
+			if startEr != nil {
+				destroyServer = argv.KeepServer
+				return startEr
 			}
 
 			banner.GetCmdProgressBanner()
@@ -725,6 +743,40 @@ func deferDeleteServer(sclient *hcloud.ServerClient, destroy *bool, serverName s
 	if destroy != nil && *destroy {
 		helpers.TryDeleteServer(sclient, serverName, 5, 5)
 	}
+}
+
+func startHamBuildOnRemote(host string, sshPrivateKey string, sha256Sum string, keepServer bool) error {
+	sshClient, err := GetSSHClient(host, sshPrivateKey)
+	if err != nil {
+		return err
+	}
+	defer sshClient.Close()
+
+	shell, err := GetSSHShell(sshClient)
+	if err != nil {
+		return err
+	}
+
+	processExists, err := shell.Exec("ps -ef | grep \"[h]am build\"")
+	if strings.Contains(processExists, "ham build") {
+		time.Sleep(time.Second * time.Duration(1))
+		return nil
+	}
+
+	keep := ""
+	if keepServer {
+		keep = "--keep-server"
+	}
+	buildCommand := fmt.Sprintf("ham build %s --sum %s --recipe /ham-recipe --vars /ham-files/vars.json",
+		keep,
+		sha256Sum)
+	_, err = shell.Exec(buildCommand)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(time.Second * time.Duration(5))
+	return nil
 }
 
 func trackRemoteServerProgress(host string, sshPrivateKey string) (SSHShellCode, error) {

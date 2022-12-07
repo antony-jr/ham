@@ -20,7 +20,7 @@ build:
   - name: Echoing File
     run: echo 'Hello World' > test.txt
 
-  - title: Test
+  - name: Test
     run: echo "$PATH" > env.txt
 
   - title: Use Args
@@ -29,10 +29,10 @@ build:
       sleep 20
       echo "Something"
       
-  - title: Running Lineage OS build
+  - name: Running Lineage OS build
     run: sleep 30
 
-  - title: Signing APKs and Build
+  - name: Signing APKs and Build
     run: sleep 20
 
 post_build:
