@@ -91,24 +91,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.prog = result["progress"].(interface{}).(string)
-		m.percentage = int(result["percentage"].(interface{}).(float64))
+		percent := result["percentage"].(interface{}).(float64)
+		m.percentage = int(percent)
 
 		if m.percentage == 100 {
-			// Everything's been installed. We're done!
 			m.done = true
-
 			return m, tea.Batch(
 				tea.Printf("  %s Remote Build Completed\n", checkMark),
 				withErrorQuit(m.shell, SSH_SHELL_NO_ERROR),
 			)
 		}
 
-		// Update progress bar
-		progressCmd := m.progress.SetPercent(float64(m.percentage))
+		progressCmd := m.progress.SetPercent(percent)
 
 		return m, tea.Batch(
 			progressCmd,
-			// tea.Printf(" %s %s", checkMark, m.prog),
 			refreshProgress(m.shell),
 		)
 	case spinner.TickMsg:

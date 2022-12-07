@@ -125,7 +125,7 @@ func (Term *Terminal) ExecTerminal(Index int, Command string) error {
 
 	Term.term.Write([]byte(fmt.Sprintf("export HAM_CMD_INDEX=%d \n", Index)))
 
-	Command = strings.TrimSuffix(Command, "\\n")
+	Command = strings.TrimSuffix(Command, "\n")
 	Term.term.Write([]byte(fmt.Sprintf("%s ; echo $HAM_CMD_INDEX' success' > /tmp/%s.ham.command.status\n", Command, Term.uid)))
 
 	time.Sleep(1 * time.Second)
