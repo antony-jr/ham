@@ -108,6 +108,10 @@ func (Term *Terminal) ExecTerminal(Index int, Command string) error {
 		return err
 	}
 
+	if len(Command) == 0 {
+	   return errors.New(fmt.Sprintf("Empty Command at Entry %d", Index))
+	}
+
 	parts := strings.Split(string(status[:]), " ")
 	previdx, err := strconv.Atoi(parts[0])
 	if err != nil {
