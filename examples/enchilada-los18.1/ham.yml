@@ -23,7 +23,7 @@ build:
   - name: Test
     run: echo "$PATH" > env.txt
 
-  - title: Use Args
+  - name: Use Args
     run: |
       echo "$TELEGRAM_KEY" > key.txt
       sleep 20
