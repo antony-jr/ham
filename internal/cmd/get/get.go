@@ -257,14 +257,11 @@ Local Recipe:
 
 			var ham_labels map[string]string
 
-			var hamSSHKey *hcloud.SSHKey
-
 			for _, el := range sshkeys {
 				if el.Name == "ham-ssh-key" {
 					if keyFingerprint == el.Fingerprint {
 						keyOk = true
 						ham_labels = el.Labels
-						hamSSHKey = el
 					}
 					break
 				}
@@ -468,11 +465,16 @@ Local Recipe:
 					if confirmCreate == false {
 						return errors.New("User Declined to Create a New Server.")
 					} else {
-						// ! IMPORTANT SECTION !
-						// TODO: Create a server here
-						// TODO: Set currentBuildServer here
-						// TODO: ip6Addr = fmt.Sprintf("[%s]:22", string(currentBuildServer.PublicNet.IPv6.IP))
-
+						/*
+						   TODO: Uncomment this to actually create servers.
+						   server, err := core.CreateServer(client, serverType, serverName)
+						   if err != nil {
+						      destroyServer = !argv.KeepServer
+						      return err
+						   }
+						   currentBuildServer = server
+						   ip6Addr = fmt.Sprintf("[%s]:22", string(currentBuildServer.PublicNet.IPv6.IP))
+						*/
 					}
 				}
 
@@ -599,7 +601,7 @@ Local Recipe:
 				hf.SHA256Sum,
 				argv.KeepServer || argv.KeepServerOnBuildFail)
 			if startEr != nil {
-				destroyServer = argv.KeepServer
+				destroyServer = !argv.KeepServer
 				return startEr
 			}
 
@@ -699,33 +701,37 @@ Local Recipe:
 			for statusTries < 20 {
 				statusTries++
 
-				allSSHKeys, err := client.SSHKey.All(
+				targetSSHKey, _, err := client.SSHKey.Get(
 					context.Background(),
+					"ham-ssh-key",
 				)
 				if err != nil {
 					time.Sleep(time.Second * time.Duration(10))
 					continue
 				}
 
-				for _, key := range allSSHKeys {
-					if key.Name == hamSSHKey.Name {
-						labels := key.Labels
-						for serv, buildStatus := range labels {
-							if serv == serverName {
-								if buildStatus == "successful" {
-									destroyServer = true
-									fmt.Println("Build Successful")
-								} else if buildStatus == "inprogress" {
-									fmt.Println("Build in Progress")
-								} else {
-									destroyServer = !argv.KeepServer || !argv.KeepServerOnBuildFail
-								}
-								return nil
-							}
+				if targetSSHKey == nil {
+					destroyServer = !argv.KeepServer
+					return errors.New("HAM SSH Key not found at Hetzner Project.")
+				}
+
+				labels := targetSSHKey.Labels
+				for serv, buildStatus := range labels {
+					if serv == serverName {
+						if buildStatus == "successful" {
+							destroyServer = !argv.KeepServer
+							fmt.Println("Build Successful")
+						} else if buildStatus == "inprogress" {
+							fmt.Println("Build in Progress")
+						} else {
+							destroyServer = !argv.KeepServer || !argv.KeepServerOnBuildFail
 						}
+						return nil
 					}
 				}
 
+				destroyServer = !argv.KeepServer
+				break
 			}
 
 			banner.GetMalformedJSONBanner(serverName)
