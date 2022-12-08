@@ -85,7 +85,7 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 	errMsg := ""
 
 	// Check Current Action First
-	checkAction(createResult.Action, &ok, &errMsg)
+	checkAction(client, createResult.Action, &ok, &errMsg)
 	if !ok {
 		return nil, errors.New(errMsg)
 	}
@@ -102,16 +102,32 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 	return createResult.Server, nil
 }
 
-func checkAction(action *hcloud.Action, ok *bool, errMsg *string) {
+func checkAction(client *hcloud.Client, action *hcloud.Action, ok *bool, errMsg *string) {
 	*ok = false
 	*errMsg = ""
+	targetAction := action
+	var err error
 	for {
-		if action.Status == hcloud.ActionStatusRunning {
+	   	if targetAction == nil {
+		   *ok = true
+		   break
+		}
+
+		if targetAction.Status == hcloud.ActionStatusRunning {
 			time.Sleep(time.Second * time.Duration(2))
+			targetAction, _, err = client.Action.GetByID(
+			   context.Background(),
+			   targetAction.ID,
+			)
+			if err != nil {
+			   *ok = false
+			   *errMsg = err.Error()
+			   break
+			}
 			continue
-		} else if action.Status == hcloud.ActionStatusSuccess {
+		} else if targetAction.Status == hcloud.ActionStatusSuccess {
 			*ok = true
-		} else if action.Status == hcloud.ActionStatusError {
+		} else if targetAction.Status == hcloud.ActionStatusError {
 			*ok = false
 			*errMsg = "Server Create Action Failed (" + action.ErrorMessage + ")"
 		}
