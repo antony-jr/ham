@@ -495,17 +495,15 @@ Local Recipe:
 					if confirmCreate == false {
 						return errors.New("User Declined to Create a New Server.")
 					} else {
+					   	/* NOTE: Important Section. */
 						tuiSpinnerMsg.ShowMessage("Creating Server... ")
-						/*
-						   TODO: Uncomment this to actually create servers.
-						   server, err := core.CreateServer(client, serverType, serverName)
-						   if err != nil {
-						      destroyServer = !argv.KeepServer
-						      return err
-						   }
-						   currentBuildServer = server
-						   ip6Addr = fmt.Sprintf("[%s]:22", string(currentBuildServer.PublicNet.IPv6.IP))
-						*/
+						server, err := core.CreateServer(client, serverType, serverName)
+						if err != nil {
+						   destroyServer = !argv.KeepServer
+						   return err
+						}
+						currentBuildServer = server
+						ip6Addr = fmt.Sprintf("[%s]:22", string(currentBuildServer.PublicNet.IPv6.IP))
 						_ = tuiSpinnerMsg.StopMessage()
 						fmt.Printf(" %s Created Server\n", checkMark)
 					}
