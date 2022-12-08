@@ -58,8 +58,8 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 		StartAfterCreate: &startAfterCreate,
 		Labels:           map[string]string{},
 		PublicNet: &hcloud.ServerCreatePublicNet{
-			EnableIPv4: false,
-			EnableIPv6: true,
+			EnableIPv4: true,
+			EnableIPv6: false,
 		},
 	}
 
@@ -92,12 +92,12 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 
 	// Loop Over all Next Actions and
 	// See if it's ok
-	for _, action := range createResult.NextActions {
-		checkAction(action, &ok, &errMsg)
-		if !ok {
-			return nil, errors.New(errMsg)
-		}
-	}
+	// for _, action := range createResult.NextActions {
+	//	checkAction(action, &ok, &errMsg)
+	//	if !ok {
+		 // return nil, errors.New(errMsg)
+	//	}
+     	//}
 
 	return createResult.Server, nil
 }

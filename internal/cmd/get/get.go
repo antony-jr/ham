@@ -340,14 +340,19 @@ Local Recipe:
 			destroyServer := !argv.KeepServer
 			defer deferDeleteServer(&client.Server, &destroyServer, serverName)
 
-			var ip6Addr string
+			// Hmm... My ISP and mostly a lot of dumb ISP's don't support IPv6
+			// and tunnel is a waste of time. Also IPv4 cost a little extra on
+			// hetzner. We have no choice but to use IPv4 to support all kinds
+			// of client devices even android phones.
+			// var ip6Addr string
+			var ipAddr string
 			if testingRun {
-				ip6Addr = argv.TestingSSHIP
+				ipAddr = argv.TestingSSHIP
 			} else {
 				if currentBuildServer != nil {
-					ip6Addr = fmt.Sprintf("[%s]:22", string(currentBuildServer.PublicNet.IPv6.IP))
+					ipAddr = fmt.Sprintf("%s", string(currentBuildServer.PublicNet.IPv4.IP))
 				} else {
-					ip6Addr = "[::1]:22"
+					ipAddr = "127.1:22"
 				}
 			}
 
@@ -503,7 +508,7 @@ Local Recipe:
 						   return err
 						}
 						currentBuildServer = server
-						ip6Addr = fmt.Sprintf("[%s]:22", string(currentBuildServer.PublicNet.IPv6.IP))
+						ipAddr = fmt.Sprintf("%s", string(currentBuildServer.PublicNet.IPv4.IP))
 						_ = tuiSpinnerMsg.StopMessage()
 						fmt.Printf(" %s Created Server\n", checkMark)
 					}
@@ -511,12 +516,12 @@ Local Recipe:
 
 				// Install HAM Linux Binary to the Server
 				tuiSpinnerMsg.ShowMessage("Installing HAM to Remote Server... ")
-				sshShellClient, err := GetSSHClient(ip6Addr, config.SSHPrivateKey)
+				sshShellClient, err := GetSSHClient(ipAddr, config.SSHPrivateKey)
 				if err != nil {
 					return err
 				}
 				defer sshShellClient.Close()
-				sshSftpClient, err := GetSSHClient(ip6Addr, config.SSHPrivateKey)
+				sshSftpClient, err := GetSSHClient(ipAddr, config.SSHPrivateKey)
 				if err != nil {
 					return err
 				}
@@ -638,7 +643,7 @@ Local Recipe:
 			// Check if build is running on the remote server
 			// if not then start it now.
 			tuiSpinnerMsg.ShowMessage("Starting Build at Remote... ")
-			startEr := startHamBuildOnRemote(ip6Addr,
+			startEr := startHamBuildOnRemote(ipAddr,
 				config.SSHPrivateKey,
 				hf.SHA256Sum,
 				argv.KeepServer || argv.KeepServerOnBuildFail)
@@ -652,7 +657,7 @@ Local Recipe:
 
 			tries := 0
 			for {
-				sshCode, err := trackRemoteServerProgress(ip6Addr, config.SSHPrivateKey)
+				sshCode, err := trackRemoteServerProgress(ipAddr, config.SSHPrivateKey)
 
 				// Check for SSH Shell Code for More
 				// accurate errors.
