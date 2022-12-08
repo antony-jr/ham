@@ -136,6 +136,8 @@ Local Recipe:
 			dir := recipe_src
 			testingRun := len(argv.TestingSSHIP) != 0
 			tuiSpinnerMsg := NewTUISpinnerMessenger()
+			defer tuiSpinnerMsg.StopMessage()
+
 			peacefulQuit := true
 
 			if testingRun {
@@ -164,7 +166,6 @@ Local Recipe:
 				// Recipe is not local, so use git to clone the
 				// the recipe requested by the user.
 				// banner.GetRecipeNotExistsBanner()
-				_ = tuiSpinnerMsg.StopMessage()
 				tuiSpinnerMsg.ShowMessage("Recipe Does not Exists, Cloning.. ")
 
 				// Parse the string
@@ -299,7 +300,6 @@ Local Recipe:
 			if err != nil {
 				return err
 			}
-			_ = tuiSpinnerMsg.StopMessage()
 
 			tuiSpinnerMsg.ShowMessage("Searching for Active Builds...")
 			// Search for build servers that were already started
@@ -363,7 +363,6 @@ Local Recipe:
 						if testingRun {
 							break
 						}
-						_ = tuiSpinnerMsg.StopMessage()
 						estr := fmt.Sprintf("A %s build had run before with this recipe, Run with -f flag to force build.",
 							status)
 						return errors.New(estr)
@@ -516,31 +515,23 @@ Local Recipe:
 				tuiSpinnerMsg.ShowMessage("Installing HAM to Remote Server... ")
 				sshShellClient, err := GetSSHClient(ip6Addr, config.SSHPrivateKey)
 				if err != nil {
-
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
 				defer sshShellClient.Close()
 				sshSftpClient, err := GetSSHClient(ip6Addr, config.SSHPrivateKey)
 				if err != nil {
-
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
 				defer sshSftpClient.Close()
 
 				sftpClient, err := helpers.GetSFTPClient(sshSftpClient)
 				if err != nil {
-
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
 				defer sftpClient.Close()
 
 				shell, err := GetSSHShell(sshShellClient)
 				if err != nil {
-
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
 
@@ -556,8 +547,6 @@ Local Recipe:
 				_, err = shell.Exec("chmod a+x /usr/bin/ham")
 
 				if err != nil {
-
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
 
@@ -569,14 +558,10 @@ Local Recipe:
 
 				configFilePath, err := helpers.ConfigFilePath()
 				if err != nil {
-
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
 				err = helpers.SFTPCopyFileToRemote(sftpClient, "/root/.ham.json", configFilePath)
 				if err != nil {
-
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
 
@@ -587,12 +572,8 @@ Local Recipe:
 				_, err = shell.Exec("mkdir -p /ham-output")
 
 				if err != nil {
-
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
-
-				_ = tuiSpinnerMsg.StopMessage()
 
 				// Upload recipe repo (with SCP) or make the server download it.
 				tuiSpinnerMsg.ShowMessage("Uploading Recipe to Remote Server... ")
@@ -612,15 +593,12 @@ Local Recipe:
 
 					walker := func(path string, info os.FileInfo, err error) error {
 						if err != nil {
-
-							_ = tuiSpinnerMsg.StopMessage()
 							return err
 						}
 
 						destFile := strings.ReplaceAll(path, rootDir, "")
 
 						if info.IsDir() {
-
 							return sftpClient.MkdirAll(fmt.Sprintf("/ham-recipe/%s", destFile))
 						}
 
@@ -629,24 +607,19 @@ Local Recipe:
 
 					err = filepath.Walk(rootDir, walker)
 					if err != nil {
-
-						_ = tuiSpinnerMsg.StopMessage()
 						return err
 					}
 				}
 
 				if err != nil {
-
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
 
+				tuiSpinnerMsg.ShowMessage("Uploading User Data... ")
 				// Upload files from vars.json to server using SFTP securely.
 				for srcFilePath, destFilePath := range fileUploads {
 					err = helpers.SFTPCopyFileToRemote(sftpClient, destFilePath, srcFilePath)
 					if err != nil {
-
-						_ = tuiSpinnerMsg.StopMessage()
 						return err
 					}
 				}
@@ -654,9 +627,9 @@ Local Recipe:
 				// Upload the vars.json file
 				err = helpers.SFTPCopyFileToRemote(sftpClient, fmt.Sprintf("/ham-files/vars.json"), varsFilePath)
 				if err != nil {
-					_ = tuiSpinnerMsg.StopMessage()
 					return err
 				}
+
 				_ = tuiSpinnerMsg.StopMessage()
 
 				sftpClient.Close()
@@ -666,6 +639,7 @@ Local Recipe:
 
 			// Check if build is running on the remote server
 			// if not then start it now.
+			tuiSpinnerMsg.ShowMessage("Starting Build at Remote... ")
 			startEr := startHamBuildOnRemote(ip6Addr,
 				config.SSHPrivateKey,
 				hf.SHA256Sum,
@@ -674,6 +648,7 @@ Local Recipe:
 				destroyServer = !argv.KeepServer
 				return startEr
 			}
+			_ = tuiSpinnerMsg.StopMessage()
 
 			banner.GetCmdProgressBanner()
 
@@ -783,13 +758,13 @@ Local Recipe:
 
 				if targetSSHKey == nil {
 					destroyServer = !argv.KeepServer
-					_ = tuiSpinnerMsg.StopMessage()
 					return errors.New("HAM SSH Key not found at Hetzner Project.")
 				}
 
 				labels := targetSSHKey.Labels
 				for serv, buildStatus := range labels {
 					if serv == serverName {
+						_ = tuiSpinnerMsg.StopMessage()
 						if buildStatus == "successful" {
 							destroyServer = !argv.KeepServer
 							fmt.Println("Build Successful")
@@ -798,7 +773,6 @@ Local Recipe:
 						} else {
 							destroyServer = !argv.KeepServer || !argv.KeepServerOnBuildFail
 						}
-						_ = tuiSpinnerMsg.StopMessage()
 						return nil
 					}
 				}

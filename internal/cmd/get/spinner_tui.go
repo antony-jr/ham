@@ -102,20 +102,26 @@ func runSpinnerTeaProgram(ok *bool, title string, dn chan bool, end chan bool) {
 }
 
 type TUISpinnerMessenger struct {
-	quitOk bool
-	fin    chan bool
-	end    chan bool
+	quitOk  bool
+	fin     chan bool
+	end     chan bool
+	showing bool
 }
 
 func NewTUISpinnerMessenger() *TUISpinnerMessenger {
 	return &TUISpinnerMessenger{
-		quitOk: true,
-		fin:    make(chan bool),
-		end:    make(chan bool),
+		quitOk:  true,
+		fin:     make(chan bool),
+		end:     make(chan bool),
+		showing: false,
 	}
 }
 
 func (ctx *TUISpinnerMessenger) ShowMessage(msg string) {
+	if ctx.showing {
+		_ = ctx.StopMessage()
+	}
+
 	ctx.quitOk = true
 	ctx.fin = make(chan bool)
 	ctx.end = make(chan bool)
@@ -124,11 +130,16 @@ func (ctx *TUISpinnerMessenger) ShowMessage(msg string) {
 }
 
 func (ctx *TUISpinnerMessenger) StopMessage() bool {
+	if !ctx.showing {
+		return true
+	}
+
 	ctx.fin <- true
 	ret := <-ctx.end
 	for ret {
 		break
 	}
 
+	ctx.showing = false
 	return ctx.quitOk
 }

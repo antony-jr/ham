@@ -1,5 +1,6 @@
 # Binaries for programs and plugins
 ham
+ham-build
 release/
 *.exe
 *.exe~

@@ -1,0 +1,61 @@
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy GO Binaries
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v3
+      with:
+        go-version-file: 'go.mod'
+
+    - uses: nttld/setup-ndk@v1
+      id: setup_ndk
+      with:
+        ndk-version: r25b
+        add-to-path: false 
+        local-cache: true
+
+    - name: Go Build 
+      run: ./build-all.sh
+      env:
+        NDK_ROOT: ${{ steps.setup_ndk.outputs.ndk-path }}
+
+    - name: Upload Continuous Binaries
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ./release/*
+        tag: continuous
+        overwrite: true
+        file_glob: true
+        prerelease: true
+        release_name: "Continuous Builds"
+        body: "Continuous builds for Hetzner Android Make"
+    
+    - name: Delete Stable Tag and Release
+      if: "contains(github.event.head_commit.message, '[RELEASE STABLE]')" 
+      uses: dev-drprasad/delete-tag-and-release@v0.2.0
+      with:
+        delete_release: true
+        tag_name: stable
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Stable Binaries
+      if: "contains(github.event.head_commit.message, '[RELEASE STABLE]')"  
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ./release/*
+        tag: stable
+        overwrite: true
+        file_glob: true
+        prerelease: false
+        release_name: "Stable Builds"
+        body: "Hetzner Android Make Production Builds for the Users"
+
