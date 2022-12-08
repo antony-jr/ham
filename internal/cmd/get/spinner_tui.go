@@ -125,6 +125,7 @@ func (ctx *TUISpinnerMessenger) ShowMessage(msg string) {
 	ctx.quitOk = true
 	ctx.fin = make(chan bool)
 	ctx.end = make(chan bool)
+	ctx.showing = true
 
 	go runSpinnerTeaProgram(&ctx.quitOk, msg, ctx.fin, ctx.end)
 }
