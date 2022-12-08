@@ -48,7 +48,7 @@ func GetSSHClient(host string, privKey string) (*ssh.Client, error) {
 	}
 
 	var conn *ssh.Client
-	conn, err = ssh.Dial("tcp4", host, conf)
+	conn, err = ssh.Dial("tcp", host, conf)
 	if err != nil {
 		return nil, err
 	}

@@ -74,6 +74,8 @@ func (m QuestionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEsc:
 			if m.resp.required {
 				m.resp.err = errors.New("User Did Not Answer Question")
+			} else {
+				m.resp.err = nil
 			}
 			return m, tea.Quit
 
@@ -81,6 +83,8 @@ func (m QuestionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resp.answer = m.textInput.Value()
 			if len(m.resp.answer) == 0 && m.resp.required {
 				m.resp.err = errors.New("User Did Not Answer Question")
+			} else {
+				m.resp.err = nil
 			}
 			return m, tea.Quit
 		}

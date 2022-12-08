@@ -72,8 +72,12 @@ func TryDeleteServer(sclient *hcloud.ServerClient, serverName string, maxTries i
 	delTries := 0
 	for {
 		delErr := DeleteServer(sclient, serverName)
+		if delErr == nil {
+			return nil
+		}
+
 		if delErr.Error() == "Server Not Found" {
-			break
+			return nil
 		}
 
 		delTries++
@@ -98,7 +102,7 @@ func DeleteServer(sclient *hcloud.ServerClient, serverName string) error {
 
 	for _, server := range servers {
 		if server.Name == serverName {
-			result, _, err := sclient.DeleteWithResult(
+			_, _, err := sclient.DeleteWithResult(
 				context.Background(),
 				server)
 
@@ -106,9 +110,6 @@ func DeleteServer(sclient *hcloud.ServerClient, serverName string) error {
 				return err
 			}
 
-			if result.Action.Status == "error" {
-				return errors.New(result.Action.ErrorMessage)
-			}
 			return nil
 		}
 	}

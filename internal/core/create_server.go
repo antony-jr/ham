@@ -38,6 +38,16 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 		return nil, err
 	}
 
+	defKey, _, err := client.SSHKey.Get(
+		context.Background(),
+		"default",
+	)
+
+	sshList := []*hcloud.SSHKey{sshKey}
+	if err != nil {
+		sshList = append(sshList, defKey)
+	}
+
 	// Get Location
 	location, _, err := client.Location.Get(
 		context.Background(),
@@ -53,7 +63,7 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 		Name:             serverName,
 		ServerType:       server,
 		Image:            serverImage,
-		SSHKeys:          []*hcloud.SSHKey{sshKey},
+		SSHKeys:          sshList,
 		Location:         location,
 		StartAfterCreate: &startAfterCreate,
 		Labels:           map[string]string{},
@@ -95,9 +105,9 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 	// for _, action := range createResult.NextActions {
 	//	checkAction(action, &ok, &errMsg)
 	//	if !ok {
-		 // return nil, errors.New(errMsg)
+	// return nil, errors.New(errMsg)
 	//	}
-     	//}
+	//}
 
 	return createResult.Server, nil
 }
@@ -108,21 +118,21 @@ func checkAction(client *hcloud.Client, action *hcloud.Action, ok *bool, errMsg 
 	targetAction := action
 	var err error
 	for {
-	   	if targetAction == nil {
-		   *ok = true
-		   break
+		if targetAction == nil {
+			*ok = true
+			break
 		}
 
 		if targetAction.Status == hcloud.ActionStatusRunning {
 			time.Sleep(time.Second * time.Duration(2))
 			targetAction, _, err = client.Action.GetByID(
-			   context.Background(),
-			   targetAction.ID,
+				context.Background(),
+				targetAction.ID,
 			)
 			if err != nil {
-			   *ok = false
-			   *errMsg = err.Error()
-			   break
+				*ok = false
+				*errMsg = err.Error()
+				break
 			}
 			continue
 		} else if targetAction.Status == hcloud.ActionStatusSuccess {

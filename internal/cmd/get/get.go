@@ -350,7 +350,7 @@ Local Recipe:
 				ipAddr = argv.TestingSSHIP
 			} else {
 				if currentBuildServer != nil {
-					ipAddr = fmt.Sprintf("%s", string(currentBuildServer.PublicNet.IPv4.IP))
+					ipAddr = fmt.Sprintf("%s:22", currentBuildServer.PublicNet.IPv4.IP.String())
 				} else {
 					ipAddr = "127.1:22"
 				}
@@ -500,15 +500,15 @@ Local Recipe:
 					if confirmCreate == false {
 						return errors.New("User Declined to Create a New Server.")
 					} else {
-					   	/* NOTE: Important Section. */
+						/* NOTE: Important Section. */
 						tuiSpinnerMsg.ShowMessage("Creating Server... ")
 						server, err := core.CreateServer(client, serverType, serverName)
 						if err != nil {
-						   destroyServer = !argv.KeepServer
-						   return err
+							destroyServer = !argv.KeepServer
+							return err
 						}
 						currentBuildServer = server
-						ipAddr = fmt.Sprintf("%s", string(currentBuildServer.PublicNet.IPv4.IP))
+						ipAddr = fmt.Sprintf("%s:22", currentBuildServer.PublicNet.IPv4.IP.String())
 						_ = tuiSpinnerMsg.StopMessage()
 						fmt.Printf(" %s Created Server\n", checkMark)
 					}
@@ -554,7 +554,7 @@ Local Recipe:
 				}
 
 				_ = tuiSpinnerMsg.StopMessage()
-				fmt.Println(" %s Installed HAM to Remote Server", checkMark)
+				fmt.Printf(" %s Installed HAM to Remote Server\n", checkMark)
 
 				// Copy HAM Configuration File
 				tuiSpinnerMsg.ShowMessage("Copying Configuration... ")
@@ -582,11 +582,9 @@ Local Recipe:
 				tuiSpinnerMsg.ShowMessage("Uploading Recipe to Remote Server... ")
 				if usedGit {
 					_, err = shell.Exec("rm -rf /ham-recipe")
-					_, err = shell.Exec("cd /")
-					_, err = shell.Exec(fmt.Sprintf("git clone %s ham-recipe", gitUrl))
-					_, err = shell.Exec("cd ham-recipe")
+					_, err = shell.Exec(fmt.Sprintf("cd /; git clone %s ham-recipe", gitUrl))
 					if gitBranch != "" {
-						_, err = shell.Exec(fmt.Sprintf("git checkout -b %s", gitBranch))
+						_, err = shell.Exec(fmt.Sprintf("cd /ham-recipe ; git checkout -b %s", gitBranch))
 					}
 				} else {
 

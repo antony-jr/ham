@@ -15,7 +15,7 @@ func GrossServerPriceForServerWithHighestPerformance(client *hcloud.Client) (flo
 	// vCPU: 16
 	// Memory: 32 GB
 	// Disk: 360 GB
-	return GrossServerPriceForServerType(client, "cpx51")
+	return GrossServerPriceForServerType(client, "cpx51" /*"cx11"*/)
 }
 
 func GrossServerPriceForServerType(client *hcloud.Client, serverType string) (float64, *hcloud.ServerType, error) {
