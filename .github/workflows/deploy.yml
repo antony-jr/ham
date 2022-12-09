@@ -55,6 +55,7 @@ jobs:
         tag: stable
         overwrite: true
         file_glob: true
+        prerelease: true
         release_name: "Stable Builds"
         body: "Hetzner Android Make Production Builds for the Users"
 
