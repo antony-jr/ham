@@ -456,8 +456,12 @@ Local Recipe:
 						}
 					} else if val.Type == core.VARIABLE_TYPE_FILE_PATH {
 						exists, err := helpers.FileExists(val.Value)
+						if err != nil {
+						   	return errors.New("Error finding Variables File (" + err.Error() + ").")
+						}
+
 						if !exists {
-							return errors.New("File given in Variables does not Exists (" + err.Error() + ")")
+							return errors.New("File given in Variables does not Exists.")
 						}
 
 						fileIndex++
