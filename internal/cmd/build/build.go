@@ -67,6 +67,10 @@ func NewCommand() *cli.Command {
 			serverName := helpers.ServerNameFromSHA256(hf.SHA256Sum)
 			fmt.Printf("Build Server: %s\n", serverName)
 
+			keepArg := ""
+			if argv.KeepServer {
+			   keepArg = "--keep-server"
+			}
 			dctx := &daemon.Context{
 				PidFileName: "/tmp/com.github.antony-jr.ham.pid",
 				PidFilePerm: 0644,
@@ -76,6 +80,7 @@ func NewCommand() *cli.Command {
 				Umask:       027,
 				Args: []string{"ham",
 					"build",
+					keepArg,
 					"-r",
 					argv.RecipePath,
 					"-a",

@@ -41,7 +41,7 @@ jobs:
       if: "contains(github.event.head_commit.message, '[RELEASE STABLE]')" 
       uses: dev-drprasad/delete-tag-and-release@v0.2.0
       with:
-        delete_release: true
+        delete_release: false
         tag_name: stable
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,7 +55,6 @@ jobs:
         tag: stable
         overwrite: true
         file_glob: true
-        prerelease: false
         release_name: "Stable Builds"
         body: "Hetzner Android Make Production Builds for the Users"
 
