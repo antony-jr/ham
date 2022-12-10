@@ -191,6 +191,7 @@ func NewCommand() *cli.Command {
 					"zip",
 					"zlib1g-dev",
 					"android-sdk-platform-tools",
+					"git-lfs",
 				}
 
 				// The user can also install their own deps
