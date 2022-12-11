@@ -86,7 +86,7 @@ func (m SpinModel) View() string {
 			n--
 			prt = prt + " "
 		}
-		return prt
+		return prt + "\r"
 	}
 
 	str := fmt.Sprintf(" %s%s", m.spinner.View(), m.title)

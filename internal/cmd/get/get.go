@@ -473,59 +473,67 @@ Local Recipe:
 				if strings.Contains(processExists, "ham build") {
 					_ = tuiSpinnerMsg.StopMessage()
 					fmt.Printf(" %s Build Process Running\n", checkMark)
-				}
-
-				keep := ""
-				if argv.KeepServer || argv.KeepServerOnBuildFail {
-					keep = "--keep-server"
-				}
-				buildCommand := fmt.Sprintf("ham build %s --sum %s --recipe /ham-recipe --vars /ham-files/vars.json",
-					keep,
-					hf.SHA256Sum)
-				// check if initialized first
-				out, _ := shell.Exec("ls /tmp/ | grep ham.init.finished")
-				if !strings.Contains(out, "ham.init.finished") {
-					_ = tuiSpinnerMsg.StopMessage()
-					fmt.Println(" Server is not Initialized Properly")
-					fmt.Println(" Please Answer All Questions to Initialize Properly")
-					varsFilePath, fileUploads, err := askQuestions(&hf, serverName, argv.Answers, argv.NoConfirm)
-					tries = 0
-					for {
-						tries++
-						if err != nil {
-							if tries > 4 {
-								return err
-							}
-							time.Sleep(time.Second * time.Duration(1))
-							varsFilePath, fileUploads, err = askQuestions(&hf, serverName, argv.Answers, argv.NoConfirm)
-							continue
-						}
-						break
+				} else {
+					keep := ""
+					if argv.KeepServer || argv.KeepServerOnBuildFail {
+						keep = "--keep-server"
 					}
-					tries = 0
-					defer os.Remove(varsFilePath)
+					buildCommand := fmt.Sprintf("ham build %s --sum %s --recipe /ham-recipe --vars /ham-files/vars.json",
+						keep,
+						hf.SHA256Sum)
+					// check if initialized first
+					out, _ := shell.Exec("ls /tmp/ | grep ham.init.finished")
+					if !strings.Contains(out, "ham.init.finished") {
+						_ = tuiSpinnerMsg.StopMessage()
+						fmt.Println(" Server is not Initialized Properly")
+						fmt.Println(" Please Answer All Questions to Initialize Properly")
+						varsFilePath, fileUploads, err := askQuestions(&hf, serverName, argv.Answers, argv.NoConfirm)
+						tries = 0
+						for {
+							tries++
+							if err != nil {
+								if tries > 4 {
+									return err
+								}
+								time.Sleep(time.Second * time.Duration(1))
+								varsFilePath, fileUploads, err = askQuestions(&hf, serverName, argv.Answers, argv.NoConfirm)
+								continue
+							}
+							break
+						}
+						tries = 0
+						defer os.Remove(varsFilePath)
 
-					err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
+						err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
+						if err != nil {
+							return err
+						}
+
+						time.Sleep(time.Second * time.Duration(2))
+					}
+
+					// Cleanup any previous builds
+					_, err = tryExec("rm -rf /tmp/*.ham.command.status")
+					_, err = tryExec("rm -rf /tmp/*.ham.stdout")
 					if err != nil {
 						return err
 					}
 
+					_, err = tryExec(buildCommand)
+					if err != nil {
+						return err
+					}
+					_ = tuiSpinnerMsg.StopMessage()
 					time.Sleep(time.Second * time.Duration(2))
 				}
-
-				_, err = tryExec(buildCommand)
-				if err != nil {
-					return err
-				}
-				_ = tuiSpinnerMsg.StopMessage()
-				time.Sleep(time.Second * time.Duration(2))
 			}
 
 			banner.GetCmdProgressBanner()
 
 			tries := 0
 			for {
-				sshCode, err := trackRemoteServerProgress(ipAddr, config.SSHPrivateKey)
+				outputChannel := TailRemoteStdout(ipAddr, config.SSHPrivateKey, hf.SHA256Sum)
+				sshCode, err := trackRemoteServerProgress(ipAddr, config.SSHPrivateKey, outputChannel)
 
 				// Check for SSH Shell Code for More
 				// accurate errors.
@@ -853,10 +861,10 @@ func doInitialize(ipAddr string,
 				return err
 			}
 		} else {
-		   _, err = tryExec(fmt.Sprintf("git clone %s /ham-recipe", gitUrl))
-		   if err != nil {
-		      return err
-		   }
+			_, err = tryExec(fmt.Sprintf("git clone %s /ham-recipe", gitUrl))
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		// TODO: Make sure that it does not depend on trailing / for
@@ -1029,7 +1037,7 @@ func askQuestions(hf *core.HAMFile, serverName string, answersJsonFilePath strin
 	return varsFilePath, fileUploads, nil
 }
 
-func trackRemoteServerProgress(host string, sshPrivateKey string) (SSHShellCode, error) {
+func trackRemoteServerProgress(host string, sshPrivateKey string, tail chan string) (SSHShellCode, error) {
 	sshClient, err := GetSSHClient(host, sshPrivateKey)
 	if err != nil {
 		return SSH_SHELL_CANNOT_GET_CLIENT, err
@@ -1041,7 +1049,7 @@ func trackRemoteServerProgress(host string, sshPrivateKey string) (SSHShellCode,
 		return SSH_SHELL_CANNOT_GET_SESSION, err
 	}
 
-	err = runProgressTeaProgram(shell)
+	err = runProgressTeaProgram(shell, tail)
 	if err != nil {
 		return shell.code, err
 	}

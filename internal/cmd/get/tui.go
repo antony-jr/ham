@@ -16,6 +16,8 @@ import (
 
 type model struct {
 	shell      *SSHShellContext
+	tail       chan string
+	output     string
 	percentage int
 	prog       string
 	width      int
@@ -32,7 +34,7 @@ var (
 	crossMark          = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).SetString(emoji.Sprintf(":prohibited:"))
 )
 
-func newModel(shell *SSHShellContext) model {
+func newModel(shell *SSHShellContext, t chan string) model {
 	p := progress.New(
 		progress.WithDefaultGradient(),
 		progress.WithWidth(40),
@@ -42,7 +44,9 @@ func newModel(shell *SSHShellContext) model {
 	s.Spinner = spinner.Points
 	return model{
 		shell:      shell,
+		tail:       t,
 		percentage: 0,
+		output:     "",
 		prog:       "Building",
 		spinner:    s,
 		progress:   p,
@@ -50,7 +54,7 @@ func newModel(shell *SSHShellContext) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(tea.Println("  Tracking Remote Build..."), m.spinner.Tick, refreshProgress(m.shell))
+	return tea.Batch(tea.Println("  Tracking Remote Build..."), m.spinner.Tick, refreshProgress(m.shell), refreshOutput(m.tail))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -65,6 +69,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case errorCode:
 		return m, tea.Quit
+
+	case outputContent:
+		outputStr := string(msg)
+		m.output = outputStr
+		return m, tea.Batch(
+			refreshOutput(m.tail),
+		)
 
 	case statusJson:
 		raw_json := []byte(statusJson(msg))
@@ -142,7 +153,18 @@ func (m model) View() string {
 	cellsRemaining := max(0, m.width-lipgloss.Width(spin+info+prog+pkgCount))
 	gap := strings.Repeat(" ", cellsRemaining)
 
-	return spin + info + gap + prog + pkgCount
+	tailOut := ""
+	if m.output != "" {
+		dialogBoxStyle := lipgloss.NewStyle().
+			Padding(1, 1).
+			PaddingLeft(2).
+			Width(100).
+			Foreground(lipgloss.Color("201"))
+
+		tailOut = dialogBoxStyle.Render(strings.ReplaceAll(strings.ReplaceAll(m.output, "\r", "\n"), "\n\n", "\n")) + "\n\n"
+	}
+
+	return tailOut + spin + info + gap + prog + pkgCount
 }
 
 type statusJson string
@@ -172,6 +194,16 @@ func refreshProgress(shell *SSHShellContext) tea.Cmd {
 	})
 }
 
+type outputContent string
+
+func refreshOutput(tail chan string) tea.Cmd {
+	d := time.Millisecond * time.Duration(200)
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		out := <-tail
+		return outputContent(out)
+	})
+}
+
 func max(a, b int) int {
 	if a > b {
 		return a
@@ -179,8 +211,8 @@ func max(a, b int) int {
 	return b
 }
 
-func runProgressTeaProgram(shell *SSHShellContext) error {
-	if _, err := tea.NewProgram(newModel(shell)).Run(); err != nil {
+func runProgressTeaProgram(shell *SSHShellContext, tail chan string) error {
+	if _, err := tea.NewProgram(newModel(shell, tail)).Run(); err != nil {
 		return err
 	}
 
