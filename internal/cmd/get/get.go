@@ -847,15 +847,16 @@ func doInitialize(ipAddr string,
 		if err != nil {
 			return err
 		}
-		_, err = tryExec(fmt.Sprintf("cd /; git clone %s ham-recipe", gitUrl))
-		if err != nil {
-			return err
-		}
 		if gitBranch != "" {
-			_, err = tryExec(fmt.Sprintf("cd /ham-recipe ; git checkout -b %s", gitBranch))
+			_, err = tryExec(fmt.Sprintf("git clone --branch %s %s /ham-recipe", gitBranch, gitUrl))
 			if err != nil {
 				return err
 			}
+		} else {
+		   _, err = tryExec(fmt.Sprintf("git clone %s /ham-recipe", gitUrl))
+		   if err != nil {
+		      return err
+		   }
 		}
 	} else {
 		// TODO: Make sure that it does not depend on trailing / for

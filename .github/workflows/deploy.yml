@@ -37,15 +37,6 @@ jobs:
         release_name: "Continuous Builds"
         body: "Continuous builds for Hetzner Android Make"
     
-    - name: Delete Stable Tag and Release
-      if: "contains(github.event.head_commit.message, '[RELEASE STABLE]')" 
-      uses: dev-drprasad/delete-tag-and-release@v0.2.0
-      with:
-        delete_release: false
-        tag_name: stable
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
     - name: Upload Stable Binaries
       if: "contains(github.event.head_commit.message, '[RELEASE STABLE]')"  
       uses: svenstaro/upload-release-action@v2
