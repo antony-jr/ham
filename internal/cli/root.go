@@ -4,6 +4,7 @@ import (
 	"github.com/mkideal/cli"
 	"os"
 
+	"github.com/antony-jr/ham/internal/cmd/clean"
 	"github.com/antony-jr/ham/internal/cmd/get"
 	"github.com/antony-jr/ham/internal/cmd/initialize"
 )
@@ -33,5 +34,6 @@ func Run() error {
 		cli.Tree(help),
 		cli.Tree(initialize.NewCommand()),
 		cli.Tree(get.NewCommand()),
+		cli.Tree(clean.NewCommand()),
 	).Run(os.Args[1:])
 }
