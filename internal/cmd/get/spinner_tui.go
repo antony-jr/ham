@@ -89,7 +89,7 @@ func (m SpinModel) View() string {
 		return prt
 	}
 
-	str := fmt.Sprintf(" %s %s", m.spinner.View(), m.title)
+	str := fmt.Sprintf(" %s%s", m.spinner.View(), m.title)
 	return str
 }
 
@@ -140,6 +140,7 @@ func (ctx *TUISpinnerMessenger) StopMessage() bool {
 	for ret {
 		break
 	}
+	time.Sleep(time.Millisecond * time.Duration(500))
 
 	ctx.showing = false
 	return ctx.quitOk

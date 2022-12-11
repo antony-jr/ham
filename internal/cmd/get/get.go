@@ -191,10 +191,10 @@ Local Recipe:
 				gitBranch = orig_branch
 
 				tuiSpinnerMsg.ShowMessage(fmt.Sprintf("Cloning Into %s...", dir))
-				// fmt.Printf(" %s Cloning Into: %s\n", checkMark, dir)
 
-				r, err := git.PlainClone(dir, false, &git.CloneOptions{
-					URL: git_url,
+				_, err = git.PlainClone(dir, false, &git.CloneOptions{
+					URL:           gitUrl,
+					ReferenceName: plumbing.NewBranchReferenceName(gitBranch),
 				})
 
 				if err != nil {
@@ -202,19 +202,6 @@ Local Recipe:
 					return err
 				}
 
-				if orig_branch != "" {
-					w, err := r.Worktree()
-					if err != nil {
-						_ = os.RemoveAll(dir)
-						return err
-					}
-
-					err = w.Checkout(&git.CheckoutOptions{Branch: plumbing.ReferenceName(orig_branch)})
-					if err != nil {
-						_ = os.RemoveAll(dir)
-						return err
-					}
-				}
 				_ = tuiSpinnerMsg.StopMessage()
 			}
 
@@ -242,13 +229,11 @@ Local Recipe:
 				return err
 			}
 			_ = tuiSpinnerMsg.StopMessage()
-			time.Sleep(time.Second * time.Duration(1))
 			fmt.Printf(" %s Read Configuration\n", checkMark)
 
 			tuiSpinnerMsg.ShowMessage("Connecting to Hetzner...")
 			client := hcloud.NewClient(hcloud.WithToken(config.APIKey))
 			_ = tuiSpinnerMsg.StopMessage()
-			time.Sleep(time.Second * time.Duration(1))
 			fmt.Printf(" %s Connected with Hetzner Cloud API\n", checkMark)
 
 			tuiSpinnerMsg.ShowMessage("Checking SSH Keys... ")
@@ -417,7 +402,7 @@ Local Recipe:
 					fmt.Printf(" %s Created Server\n", checkMark)
 				}
 
-				err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir)
+				err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
 				if err != nil {
 					return err
 				}
@@ -480,14 +465,13 @@ Local Recipe:
 					return out, err
 				}
 
-				processExists, err := tryExec("ps -ef | grep \"[h]am build\"")
+				processExists, _ := shell.Exec("ps -ef | grep \"[h]am build\"")
 				if err != nil {
 					return err
 				}
 
 				if strings.Contains(processExists, "ham build") {
 					_ = tuiSpinnerMsg.StopMessage()
-					time.Sleep(time.Second * time.Duration(1))
 					fmt.Printf(" %s Build Process Running\n", checkMark)
 				}
 
@@ -499,14 +483,9 @@ Local Recipe:
 					keep,
 					hf.SHA256Sum)
 				// check if initialized first
-				out, err := tryExec("ls /tmp/ | grep ham.init.finished")
-				if err != nil {
-					return err
-				}
-
+				out, _ := shell.Exec("ls /tmp/ | grep ham.init.finished")
 				if !strings.Contains(out, "ham.init.finished") {
 					_ = tuiSpinnerMsg.StopMessage()
-					time.Sleep(time.Second * time.Duration(1))
 					fmt.Println(" Server is not Initialized Properly")
 					fmt.Println(" Please Answer All Questions to Initialize Properly")
 					varsFilePath, fileUploads, err := askQuestions(&hf, serverName, argv.Answers, argv.NoConfirm)
@@ -526,7 +505,7 @@ Local Recipe:
 					tries = 0
 					defer os.Remove(varsFilePath)
 
-					err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir)
+					err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
 					if err != nil {
 						return err
 					}
@@ -691,7 +670,15 @@ func deferDeleteServer(sclient *hcloud.ServerClient, destroy *bool, serverName s
 	}
 }
 
-func doInitialize(ipAddr string, privateKey string, varsFilePath string, fileUploads map[string]string, usedGit bool, gitUrl string, gitBranch string, dir string) error {
+func doInitialize(ipAddr string,
+	privateKey string,
+	varsFilePath string,
+	fileUploads map[string]string,
+	usedGit bool,
+	gitUrl string,
+	gitBranch string,
+	dir string,
+	testingBin string) error {
 	spinnerMsg := NewTUISpinnerMessenger()
 	defer spinnerMsg.StopMessage()
 
@@ -804,7 +791,11 @@ func doInitialize(ipAddr string, privateKey string, varsFilePath string, fileUpl
 	fmt.Printf(" %s Updated Environment\n", checkMark)
 
 	spinnerMsg.ShowMessage("Installing HAM Binary... ")
-	_, err = tryExec(fmt.Sprintf("wget -O /usr/bin/ham \"%s\"", HAM_LINUX_BINARY_URL))
+	if testingBin != "" {
+		err = helpers.SFTPCopyFileToRemote(sftpClient, "/usr/bin/ham", testingBin)
+	} else {
+		_, err = tryExec(fmt.Sprintf("wget -O /usr/bin/ham \"%s\"", HAM_LINUX_BINARY_URL))
+	}
 	if err != nil {
 		return err
 	}
