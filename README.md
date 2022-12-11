@@ -6,7 +6,12 @@
 
 
 HAM (Hetzner Android Make) is a Simple tool written in GO which can build LineageOS (or AOSP) from Source using Hetzner Cloud. 
-**Build your Own Flavor of Android Under €1.**
+**Build your Own Flavor of Android Under €1.** (Run Directly from your Android Phone too..)
+
+<p align="center">
+  <img src="artwork/preview.gif" height=auto width=auto alt="Ham Preview">  <br>
+</p>
+
 
 ### Quickstart
 
