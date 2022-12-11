@@ -36,10 +36,6 @@ func NewTerminal(UniqueID string) (Terminal, error) {
 	if err != nil {
 		return t, err
 	}
-	logFile, err := os.Create(fmt.Sprintf("/tmp/%s.ham.stdout", UniqueID))
-	if err != nil {
-		return t, err
-	}
 
 	file.Write([]byte("-1 success"))
 	file.Close()
@@ -52,7 +48,25 @@ func NewTerminal(UniqueID string) (Terminal, error) {
 
 	// Copy pty stdout to a log file for debugging.
 	go func() {
-		_, _ = io.Copy(logFile, t.term)
+		filePath := fmt.Sprintf("/tmp/%s.ham.stdout", UniqueID)
+		logFile, err := os.Create(filePath)
+		if err == nil {
+			size := int64(0)
+			for {
+				written, err := io.CopyN(logFile, t.term, 1024)
+				if err != nil {
+					break
+				}
+
+				size = size + written
+
+				if size >= 1024*1024*5 {
+					logFile.Close()
+					os.Remove(filePath)
+					logFile, err = os.Create(filePath)
+				}
+			}
+		}
 	}()
 
 	return t, nil

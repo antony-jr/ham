@@ -69,7 +69,7 @@ func NewCommand() *cli.Command {
 
 			keepArg := ""
 			if argv.KeepServer {
-			   keepArg = "--keep-server"
+				keepArg = "--keep-server"
 			}
 			dctx := &daemon.Context{
 				PidFileName: "/tmp/com.github.antony-jr.ham.pid",

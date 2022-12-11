@@ -37,7 +37,6 @@ type getT struct {
 	KeepServerOnBuildFail   bool   `cli:"b,keep-server-build-fail" usage:"Don't Destroy the Remote Server even if Build Fails. (Use with Caution)"`
 	TestingBinary           string `cli:"e,testing-binary" usage:"Path to ham-build binary to use in the Remote Server during Testing. (Developer)"`
 	TestingSSHIP            string `cli:"i,testing-ssh-ip" usage:"Run a Test Run without Creating Servers and Use the given IP as Build Server. (Developer)"`
-	DontInitTesting         bool   `cli:"m,testing-no-init" usage:"When under Test Run, Don't Initialize the Server, rather Start Tracking. (Developer)"`
 	Force                   bool   `cli:"f,force" usage:"Force start a build even if the recipe was built Already."`
 }
 
@@ -150,8 +149,8 @@ Local Recipe:
 				}
 			}
 
-			checkMark := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
-			optionalSuffix := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString(" (OPTIONAL, Press ENTER to Skip)")
+			//checkMark := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString("✓")
+			//optionalSuffix := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString(" (OPTIONAL, Press ENTER to Skip)")
 
 			banner.GetStartBanner()
 
@@ -243,11 +242,13 @@ Local Recipe:
 				return err
 			}
 			_ = tuiSpinnerMsg.StopMessage()
+			time.Sleep(time.Second * time.Duration(1))
 			fmt.Printf(" %s Read Configuration\n", checkMark)
 
 			tuiSpinnerMsg.ShowMessage("Connecting to Hetzner...")
 			client := hcloud.NewClient(hcloud.WithToken(config.APIKey))
 			_ = tuiSpinnerMsg.StopMessage()
+			time.Sleep(time.Second * time.Duration(1))
 			fmt.Printf(" %s Connected with Hetzner Cloud API\n", checkMark)
 
 			tuiSpinnerMsg.ShowMessage("Checking SSH Keys... ")
@@ -324,16 +325,26 @@ Local Recipe:
 				}
 			}
 
-			if !serverRunning {
-				_ = tuiSpinnerMsg.StopMessage()
+			previousBuildStatus := ""
+			tuiSpinnerMsg.ShowMessage("Checking Previous Builds...")
+			for key, status := range ham_labels {
+				if key == serverName && !argv.Force {
+					previousBuildStatus = status
+					break
+				}
 			}
+			_ = tuiSpinnerMsg.StopMessage()
 
-			if testingRun {
-				serverRunning = false
-			}
+			fmt.Printf(" %s Checked Previous Builds\n", checkMark)
 
-			if testingRun && argv.DontInitTesting {
-				serverRunning = true
+			if previousBuildStatus != "" && !argv.Force {
+				if previousBuildStatus == "failed" ||
+					previousBuildStatus == "successful" {
+					estr := fmt.Sprintf("A %s build had run before with this recipe, Run with -f flag to force build.",
+						previousBuildStatus)
+					return errors.New(estr)
+
+				}
 			}
 
 			// This is a safety net.
@@ -356,304 +367,180 @@ Local Recipe:
 				}
 			}
 
-			if !serverRunning {
-				// Check the ham-ssh-key labels, label with the server
-				// name will have the last build status like success
-				// or failed.
-				tuiSpinnerMsg.ShowMessage("Checking Previous Builds...")
-				for key, status := range ham_labels {
-					if key == serverName && !argv.Force {
-						// Confirm with user before starting the
-						// build again.
-						if testingRun {
-							break
-						}
-						estr := fmt.Sprintf("A %s build had run before with this recipe, Run with -f flag to force build.",
-							status)
-						return errors.New(estr)
-					}
-					break
-				}
-				_ = tuiSpinnerMsg.StopMessage()
-				fmt.Printf(" %s Checked Previous Builds\n", checkMark)
-
+			if !serverRunning && !testingRun {
 				// Create a new build server.
 
 				// Before that we need to get variables from the user
 				// such as special files, env vars required for the
 				// build from the user. This might be crucial secrets
 				// so transport it with SSH to stay secure.
-				buildVars := core.NewVariables()
-
-				if len(hf.Args) != 0 {
-					banner.GetQuestionBanner()
-
-					// Get Answers if Provided
-					answers := map[string]string{}
-					if len(argv.Answers) != 0 {
-						answers, err = helpers.ReadVarsJsonFile(argv.Answers)
-						if err != nil {
-							return err
-						}
-					}
-
-					for _, arg := range hf.Args {
-						placeholder := "Value"
-						required := false
-						valueType := core.VARIABLE_TYPE_VALUE
-
-						argType := strings.ToLower(arg.Type)
-						if argType == "file" {
-							placeholder = "File Path"
-							valueType = core.VARIABLE_TYPE_FILE_PATH
-						} else if argType == "secret" {
-							placeholder = "Secret"
-							valueType = core.VARIABLE_TYPE_SECRET
-						}
-
-						if arg.Required != nil {
-							required = *arg.Required
-						}
-
-						answerValue, answerOk := answers[arg.ID]
-						if answerOk {
-							buildVars.PutVar(arg.ID, answerValue, valueType)
-							continue
-						}
-
-						if !required && argv.NoConfirm {
-							continue
-						}
-
-						questionResponse := NewQuestionResponse(required, valueType == core.VARIABLE_TYPE_SECRET)
-
-						suffix := ""
-						if !required {
-							suffix = fmt.Sprintf("%s", optionalSuffix)
-						}
-
-						runQuestionTeaProgram(questionResponse, arg.Prompt+suffix, placeholder)
-
-						if questionResponse.err != nil {
-							return questionResponse.err
-						}
-
-						buildVars.PutVar(arg.ID, questionResponse.answer, valueType)
-						fmt.Println()
-					}
-				}
-
-				// Build the vars.json file and get ready to upload
-				// to the server once created
-				fileUploads := map[string]string{}
-				varsJson := map[string]string{}
-				fileIndex := 0
-				for key, val := range buildVars.Vars {
-					if val.Type == core.VARIABLE_TYPE_VALUE ||
-						val.Type == core.VARIABLE_TYPE_SECRET {
-						if len(val.Value) != 0 {
-							varsJson[key] = val.Value
-						}
-					} else if val.Type == core.VARIABLE_TYPE_FILE_PATH {
-						exists, err := helpers.FileExists(val.Value)
-						if err != nil {
-						   	return errors.New("Error finding Variables File (" + err.Error() + ").")
-						}
-
-						if !exists {
-							return errors.New("File given in Variables does not Exists.")
-						}
-
-						fileIndex++
-						varsJson[key] = fmt.Sprintf("/ham-files/%d", fileIndex)
-						fileUploads[val.Value] = varsJson[key]
-					}
-				}
-				varsFilePath := fmt.Sprintf("%s%c%s-vars.json", os.TempDir(), os.PathSeparator, serverName)
-				err = helpers.DumpJsonFile(varsJson, varsFilePath)
+				varsFilePath, fileUploads, err := askQuestions(&hf, serverName, argv.Answers, argv.NoConfirm)
 				if err != nil {
 					return err
 				}
 				defer os.Remove(varsFilePath)
 
-				// In testing we don't need to get price or confirmation
-				// or creation of server.
-				if !testingRun {
+				tuiSpinnerMsg.ShowMessage("Getting Server Information... ")
 
-					tuiSpinnerMsg.ShowMessage("Getting Server Information... ")
+				// Get Suitable Server and Price
+				price, serverType, err := GrossServerPriceForServerWithHighestPerformance(client)
+				if err != nil {
+					return err
+				}
+				_ = tuiSpinnerMsg.StopMessage()
+				banner.GetServerPriceInformationBanner(strings.ToUpper(serverType.Name), price)
 
-					// Get Suitable Server and Price
-					price, serverType, err := GrossServerPriceForServerWithHighestPerformance(client)
+				confirmCreate := argv.NoConfirm
+
+				if !argv.NoConfirm {
+					err = runConfirmCreateTeaProgram(&confirmCreate)
 					if err != nil {
 						return err
 					}
+				}
+
+				// Keep this condition simple since this is an important
+				// decision by the user.
+				if confirmCreate == false {
+					return errors.New("User Declined to Create a New Server.")
+				} else {
+					/* NOTE: Important Section. */
+					tuiSpinnerMsg.ShowMessage("Creating Server... ")
+					server, err := core.CreateServer(client, serverType, serverName)
+					if err != nil {
+						destroyServer = !argv.KeepServer
+						return err
+					}
+					currentBuildServer = server
+					ipAddr = fmt.Sprintf("%s:22", currentBuildServer.PublicNet.IPv4.IP.String())
 					_ = tuiSpinnerMsg.StopMessage()
-					banner.GetServerPriceInformationBanner(strings.ToUpper(serverType.Name), price)
-
-					confirmCreate := argv.NoConfirm
-
-					if !argv.NoConfirm {
-						err = runConfirmCreateTeaProgram(&confirmCreate)
-						if err != nil {
-							return err
-						}
-					}
-
-					// Keep this condition simple since this is an important
-					// decision by the user.
-					if confirmCreate == false {
-						return errors.New("User Declined to Create a New Server.")
-					} else {
-						/* NOTE: Important Section. */
-						tuiSpinnerMsg.ShowMessage("Creating Server... ")
-						server, err := core.CreateServer(client, serverType, serverName)
-						if err != nil {
-							destroyServer = !argv.KeepServer
-							return err
-						}
-						currentBuildServer = server
-						ipAddr = fmt.Sprintf("%s:22", currentBuildServer.PublicNet.IPv4.IP.String())
-						_ = tuiSpinnerMsg.StopMessage()
-						fmt.Printf(" %s Created Server\n", checkMark)
-					}
+					fmt.Printf(" %s Created Server\n", checkMark)
 				}
 
-				// Install HAM Linux Binary to the Server
-				tuiSpinnerMsg.ShowMessage("Installing HAM to Remote Server... ")
-				sshShellClient, err := GetSSHClient(ipAddr, config.SSHPrivateKey)
+				err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir)
 				if err != nil {
 					return err
 				}
-				defer sshShellClient.Close()
-				sshSftpClient, err := GetSSHClient(ipAddr, config.SSHPrivateKey)
-				if err != nil {
-					return err
-				}
-				defer sshSftpClient.Close()
-
-				sftpClient, err := helpers.GetSFTPClient(sshSftpClient)
-				if err != nil {
-					return err
-				}
-				defer sftpClient.Close()
-
-				shell, err := GetSSHShell(sshShellClient)
-				if err != nil {
-					return err
-				}
-
-				_, err = shell.Exec("apt-get update -y -qq")
-				_, err = shell.Exec("apt-get upgrade -y -qq")
-				_, err = shell.Exec("apt-get install -y -qq git wget curl")
-
-				if !testingRun {
-					_, err = shell.Exec(fmt.Sprintf("wget -O /usr/bin/ham \"%s\"", HAM_LINUX_BINARY_URL))
-				} else {
-					err = helpers.SFTPCopyFileToRemote(sftpClient, "/usr/bin/ham", argv.TestingBinary)
-				}
-				_, err = shell.Exec("chmod a+x /usr/bin/ham")
-
-				if err != nil {
-					return err
-				}
-
-				_ = tuiSpinnerMsg.StopMessage()
-				fmt.Printf(" %s Installed HAM to Remote Server\n", checkMark)
-
-				// Copy HAM Configuration File
-				tuiSpinnerMsg.ShowMessage("Copying Configuration... ")
-
-				configFilePath, err := helpers.ConfigFilePath()
-				if err != nil {
-					return err
-				}
-				err = helpers.SFTPCopyFileToRemote(sftpClient, "/root/.ham.json", configFilePath)
-				if err != nil {
-					return err
-				}
-
-				// Make required directories
-				_, err = shell.Exec("mkdir -p /ham-build")
-				_, err = shell.Exec("mkdir -p /ham-recipe")
-				_, err = shell.Exec("mkdir -p /ham-files")
-				_, err = shell.Exec("mkdir -p /ham-output")
-
-				if err != nil {
-					return err
-				}
-
-				// Upload recipe repo (with SCP) or make the server download it.
-				tuiSpinnerMsg.ShowMessage("Uploading Recipe to Remote Server... ")
-				if usedGit {
-					_, err = shell.Exec("rm -rf /ham-recipe")
-					_, err = shell.Exec(fmt.Sprintf("cd /; git clone %s ham-recipe", gitUrl))
-					if gitBranch != "" {
-						_, err = shell.Exec(fmt.Sprintf("cd /ham-recipe ; git checkout -b %s", gitBranch))
-					}
-				} else {
-
-					// TODO: Make sure that it does not depend on trailing / for
-					// local recipes
-					rootDir := dir
-
-					walker := func(path string, info os.FileInfo, err error) error {
-						if err != nil {
-							return err
-						}
-
-						destFile := strings.ReplaceAll(path, rootDir, "")
-
-						if info.IsDir() {
-							return sftpClient.MkdirAll(fmt.Sprintf("/ham-recipe/%s", destFile))
-						}
-
-						return helpers.SFTPCopyFileToRemote(sftpClient, fmt.Sprintf("/ham-recipe/%s", destFile), path)
-					}
-
-					err = filepath.Walk(rootDir, walker)
-					if err != nil {
-						return err
-					}
-				}
-
-				if err != nil {
-					return err
-				}
-
-				tuiSpinnerMsg.ShowMessage("Uploading User Data... ")
-				// Upload files from vars.json to server using SFTP securely.
-				for srcFilePath, destFilePath := range fileUploads {
-					err = helpers.SFTPCopyFileToRemote(sftpClient, destFilePath, srcFilePath)
-					if err != nil {
-						return err
-					}
-				}
-
-				// Upload the vars.json file
-				err = helpers.SFTPCopyFileToRemote(sftpClient, fmt.Sprintf("/ham-files/vars.json"), varsFilePath)
-				if err != nil {
-					return err
-				}
-
-				_ = tuiSpinnerMsg.StopMessage()
-
-				sftpClient.Close()
-				sshSftpClient.Close()
-				sshShellClient.Close()
 			}
+
+			_ = tuiSpinnerMsg.StopMessage()
 
 			// Check if build is running on the remote server
 			// if not then start it now.
-			tuiSpinnerMsg.ShowMessage("Starting Build at Remote... ")
-			startEr := startHamBuildOnRemote(ipAddr,
-				config.SSHPrivateKey,
-				hf.SHA256Sum,
-				argv.KeepServer || argv.KeepServerOnBuildFail)
-			if startEr != nil {
-				destroyServer = !argv.KeepServer
-				return startEr
+
+			{
+				tuiSpinnerMsg.ShowMessage("Checking Build Process... ")
+				sshClient, err := GetSSHClient(ipAddr, config.SSHPrivateKey)
+				tries := 0
+				for {
+					tries++
+					if err != nil {
+						if tries > 20 {
+							return err
+						}
+						time.Sleep(time.Second * time.Duration(2))
+						sshClient, err = GetSSHClient(ipAddr, config.SSHPrivateKey)
+						continue
+					}
+					break
+				}
+				tries = 0
+				defer sshClient.Close()
+
+				shell, err := GetSSHShell(sshClient)
+				for {
+					tries++
+					if err != nil {
+						if tries > 20 {
+							return err
+						}
+						time.Sleep(time.Second * time.Duration(2))
+						shell, err = GetSSHShell(sshClient)
+						continue
+					}
+					break
+				}
+				tries = 0
+
+				tryExec := func(cmd string) (string, error) {
+					out, err := shell.Exec(cmd)
+					try := 0
+					for {
+						try++
+						if err != nil {
+							if try > 20 {
+								return "", err
+							}
+							time.Sleep(time.Second * time.Duration(2))
+							out, err = shell.Exec(cmd)
+							continue
+						}
+						break
+					}
+					return out, err
+				}
+
+				processExists, err := tryExec("ps -ef | grep \"[h]am build\"")
+				if err != nil {
+					return err
+				}
+
+				if strings.Contains(processExists, "ham build") {
+					_ = tuiSpinnerMsg.StopMessage()
+					time.Sleep(time.Second * time.Duration(1))
+					fmt.Printf(" %s Build Process Running\n", checkMark)
+				}
+
+				keep := ""
+				if argv.KeepServer || argv.KeepServerOnBuildFail {
+					keep = "--keep-server"
+				}
+				buildCommand := fmt.Sprintf("ham build %s --sum %s --recipe /ham-recipe --vars /ham-files/vars.json",
+					keep,
+					hf.SHA256Sum)
+				// check if initialized first
+				out, err := tryExec("ls /tmp/ | grep ham.init.finished")
+				if err != nil {
+					return err
+				}
+
+				if !strings.Contains(out, "ham.init.finished") {
+					_ = tuiSpinnerMsg.StopMessage()
+					time.Sleep(time.Second * time.Duration(1))
+					fmt.Println(" Server is not Initialized Properly")
+					fmt.Println(" Please Answer All Questions to Initialize Properly")
+					varsFilePath, fileUploads, err := askQuestions(&hf, serverName, argv.Answers, argv.NoConfirm)
+					tries = 0
+					for {
+						tries++
+						if err != nil {
+							if tries > 4 {
+								return err
+							}
+							time.Sleep(time.Second * time.Duration(1))
+							varsFilePath, fileUploads, err = askQuestions(&hf, serverName, argv.Answers, argv.NoConfirm)
+							continue
+						}
+						break
+					}
+					tries = 0
+					defer os.Remove(varsFilePath)
+
+					err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir)
+					if err != nil {
+						return err
+					}
+
+					time.Sleep(time.Second * time.Duration(2))
+				}
+
+				_, err = tryExec(buildCommand)
+				if err != nil {
+					return err
+				}
+				_ = tuiSpinnerMsg.StopMessage()
+				time.Sleep(time.Second * time.Duration(2))
 			}
-			_ = tuiSpinnerMsg.StopMessage()
 
 			banner.GetCmdProgressBanner()
 
@@ -804,38 +691,350 @@ func deferDeleteServer(sclient *hcloud.ServerClient, destroy *bool, serverName s
 	}
 }
 
-func startHamBuildOnRemote(host string, sshPrivateKey string, sha256Sum string, keepServer bool) error {
-	sshClient, err := GetSSHClient(host, sshPrivateKey)
+func doInitialize(ipAddr string, privateKey string, varsFilePath string, fileUploads map[string]string, usedGit bool, gitUrl string, gitBranch string, dir string) error {
+	spinnerMsg := NewTUISpinnerMessenger()
+	defer spinnerMsg.StopMessage()
+
+	// Install HAM Linux Binary to the Server
+	spinnerMsg.ShowMessage("Installing HAM to Remote Server... ")
+
+	sshTries := 0
+	sshShellClient, err := GetSSHClient(ipAddr, privateKey)
+
+	for {
+		sshTries++
+		if err != nil {
+			if sshTries > 20 {
+				return err
+			}
+			spinnerMsg.ShowMessage("SSH Connection Failed, Retrying... ")
+			time.Sleep(time.Second * time.Duration(5))
+			sshShellClient, err = GetSSHClient(ipAddr, privateKey)
+			continue
+		}
+		break
+	}
+	sshTries = 0
+	defer sshShellClient.Close()
+
+	sshSftpClient, err := GetSSHClient(ipAddr, privateKey)
+	for {
+		sshTries++
+		if err != nil {
+			if sshTries > 20 {
+				return err
+			}
+			spinnerMsg.ShowMessage("SFTP Setup Failed, Retrying... ")
+			time.Sleep(time.Second * time.Duration(5))
+			sshSftpClient, err = GetSSHClient(ipAddr, privateKey)
+			continue
+		}
+		break
+	}
+	sshTries = 0
+	defer sshSftpClient.Close()
+
+	sftpClient, err := helpers.GetSFTPClient(sshSftpClient)
+	for {
+		sshTries++
+		if err != nil {
+			if sshTries > 20 {
+				return err
+			}
+			spinnerMsg.ShowMessage("SFTP Setup Failed, Retrying... ")
+			time.Sleep(time.Second * time.Duration(5))
+			sftpClient, err = helpers.GetSFTPClient(sshSftpClient)
+			continue
+
+		}
+		break
+	}
+	sshTries = 0
+	defer sftpClient.Close()
+
+	shell, err := GetSSHShell(sshShellClient)
+	for {
+		sshTries++
+		if err != nil {
+			if sshTries > 20 {
+				return err
+			}
+			spinnerMsg.ShowMessage("SSH Shell Setup Failed, Retrying... ")
+			time.Sleep(time.Second * time.Duration(5))
+			shell, err = GetSSHShell(sshShellClient)
+			continue
+		}
+		break
+	}
+	sshTries = 0
+
+	tryExec := func(command string) (string, error) {
+		tries := 0
+		out, err := shell.Exec(command)
+		for {
+			tries++
+			if err != nil {
+				if tries > 20 {
+					return "", err
+				}
+				time.Sleep(time.Second * time.Duration(2))
+				out, err = shell.Exec(command)
+				continue
+			}
+			break
+		}
+		return out, nil
+	}
+
+	spinnerMsg.ShowMessage("Updating Environment... ")
+	_, err = tryExec("apt-get update -y -qq")
 	if err != nil {
 		return err
 	}
-	defer sshClient.Close()
-
-	shell, err := GetSSHShell(sshClient)
+	_, err = tryExec("apt-get upgrade -y -qq")
+	if err != nil {
+		return err
+	}
+	_, err = tryExec("apt-get install -y -qq git wget curl")
 	if err != nil {
 		return err
 	}
 
-	processExists, err := shell.Exec("ps -ef | grep \"[h]am build\"")
-	if strings.Contains(processExists, "ham build") {
-		time.Sleep(time.Second * time.Duration(1))
-		return nil
-	}
+	_ = spinnerMsg.StopMessage()
+	fmt.Printf(" %s Updated Environment\n", checkMark)
 
-	keep := ""
-	if keepServer {
-		keep = "--keep-server"
+	spinnerMsg.ShowMessage("Installing HAM Binary... ")
+	_, err = tryExec(fmt.Sprintf("wget -O /usr/bin/ham \"%s\"", HAM_LINUX_BINARY_URL))
+	if err != nil {
+		return err
 	}
-	buildCommand := fmt.Sprintf("ham build %s --sum %s --recipe /ham-recipe --vars /ham-files/vars.json",
-		keep,
-		sha256Sum)
-	_, err = shell.Exec(buildCommand)
+	_, err = tryExec("chmod a+x /usr/bin/ham")
 	if err != nil {
 		return err
 	}
 
-	time.Sleep(time.Second * time.Duration(5))
+	_ = spinnerMsg.StopMessage()
+	fmt.Printf(" %s Installed HAM to Remote Server\n", checkMark)
+
+	// Copy HAM Configuration File
+	spinnerMsg.ShowMessage("Copying Configuration... ")
+	configFilePath, err := helpers.ConfigFilePath()
+	if err != nil {
+		return err
+	}
+
+	err = helpers.SFTPCopyFileToRemote(sftpClient, "/root/.ham.json", configFilePath)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf(" %s Copied Configuration to Remote Server\n", checkMark)
+
+	spinnerMsg.ShowMessage("Making Required Directories... ")
+	// Make required directories
+	_, err = tryExec("mkdir -p /ham-build")
+	if err != nil {
+		return err
+	}
+	_, err = tryExec("mkdir -p /ham-recipe")
+	if err != nil {
+		return err
+	}
+	_, err = tryExec("mkdir -p /ham-files")
+	if err != nil {
+		return err
+	}
+	_, err = tryExec("mkdir -p /ham-output")
+	if err != nil {
+		return err
+	}
+
+	// Upload recipe repo (with SCP) or make the server download it.
+	spinnerMsg.ShowMessage("Uploading Recipe to Remote Server... ")
+	if usedGit {
+		_, err = tryExec("rm -rf /ham-recipe")
+		if err != nil {
+			return err
+		}
+		_, err = tryExec(fmt.Sprintf("cd /; git clone %s ham-recipe", gitUrl))
+		if err != nil {
+			return err
+		}
+		if gitBranch != "" {
+			_, err = tryExec(fmt.Sprintf("cd /ham-recipe ; git checkout -b %s", gitBranch))
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		// TODO: Make sure that it does not depend on trailing / for
+		// local recipes
+		_, err = tryExec("rm -rf /ham-recipe")
+		if err != nil {
+			return err
+		}
+		rootDir := dir
+
+		walker := func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			destFile := strings.ReplaceAll(path, rootDir, "")
+
+			if info.IsDir() {
+				return sftpClient.MkdirAll(fmt.Sprintf("/ham-recipe/%s", destFile))
+			}
+
+			return helpers.SFTPCopyFileToRemote(sftpClient, fmt.Sprintf("/ham-recipe/%s", destFile), path)
+		}
+
+		err = filepath.Walk(rootDir, walker)
+		if err != nil {
+			return err
+		}
+	}
+
+	spinnerMsg.ShowMessage("Uploading User Data... ")
+	// Upload files from vars.json to server using SFTP securely.
+	for srcFilePath, destFilePath := range fileUploads {
+		try := 0
+		for {
+			try++
+			err = helpers.SFTPCopyFileToRemote(sftpClient, destFilePath, srcFilePath)
+			if err != nil {
+				if try > 20 {
+					return err
+				}
+				time.Sleep(time.Second * time.Duration(2))
+				continue
+			}
+			break
+		}
+	}
+
+	// Upload the vars.json file
+	err = helpers.SFTPCopyFileToRemote(sftpClient, fmt.Sprintf("/ham-files/vars.json"), varsFilePath)
+	if err != nil {
+		return err
+	}
+
+	_ = spinnerMsg.StopMessage()
+
+	_, err = tryExec("echo 'finished' > /tmp/ham.init.finished")
+	if err != nil {
+		return err
+	}
+
+	sftpClient.Close()
+	sshSftpClient.Close()
+	sshShellClient.Close()
+
 	return nil
+}
+
+func askQuestions(hf *core.HAMFile, serverName string, answersJsonFilePath string, noconfirm bool) (string, map[string]string, error) {
+	buildVars := core.NewVariables()
+	optionalSuffix := lipgloss.NewStyle().Foreground(lipgloss.Color("42")).SetString(" (OPTIONAL, Press ENTER to Skip)")
+	varsFilePath := fmt.Sprintf("%s%c%s-vars.json", os.TempDir(), os.PathSeparator, serverName)
+	varsJson := map[string]string{}
+	fileUploads := map[string]string{}
+	fileIndex := 0
+	var err error
+
+	if len(hf.Args) == 0 {
+		err = helpers.DumpJsonFile(varsJson, varsFilePath)
+		if err != nil {
+			return varsFilePath, fileUploads, err
+		}
+		return varsFilePath, fileUploads, nil
+	}
+
+	banner.GetQuestionBanner()
+
+	// Get Answers if Provided
+	answers := map[string]string{}
+	if len(answersJsonFilePath) != 0 {
+		answers, err = helpers.ReadVarsJsonFile(answersJsonFilePath)
+		if err != nil {
+			return varsFilePath, fileUploads, err
+		}
+	}
+
+	for _, arg := range hf.Args {
+		placeholder := "Value"
+		required := false
+		valueType := core.VARIABLE_TYPE_VALUE
+
+		argType := strings.ToLower(arg.Type)
+		if argType == "file" {
+			placeholder = "File Path"
+			valueType = core.VARIABLE_TYPE_FILE_PATH
+		} else if argType == "secret" {
+			placeholder = "Secret"
+			valueType = core.VARIABLE_TYPE_SECRET
+		}
+
+		if arg.Required != nil {
+			required = *arg.Required
+		}
+
+		answerValue, answerOk := answers[arg.ID]
+		if answerOk {
+			buildVars.PutVar(arg.ID, answerValue, valueType)
+			continue
+		}
+
+		if !required && noconfirm {
+			continue
+		}
+
+		questionResponse := NewQuestionResponse(required, valueType == core.VARIABLE_TYPE_SECRET)
+
+		suffix := ""
+		if !required {
+			suffix = fmt.Sprintf("%s", optionalSuffix)
+		}
+
+		runQuestionTeaProgram(questionResponse, arg.Prompt+suffix, placeholder)
+
+		if questionResponse.err != nil {
+			return varsFilePath, fileUploads, questionResponse.err
+		}
+
+		buildVars.PutVar(arg.ID, questionResponse.answer, valueType)
+		fmt.Println()
+	}
+
+	// Build the vars.json file and get ready to upload
+	// to the server once created
+	for key, val := range buildVars.Vars {
+		if val.Type == core.VARIABLE_TYPE_VALUE ||
+			val.Type == core.VARIABLE_TYPE_SECRET {
+			if len(val.Value) != 0 {
+				varsJson[key] = val.Value
+			}
+		} else if val.Type == core.VARIABLE_TYPE_FILE_PATH {
+			exists, err := helpers.FileExists(val.Value)
+			if err != nil {
+				return varsFilePath, fileUploads, errors.New("Error finding Variables File (" + err.Error() + ").")
+			}
+
+			if !exists {
+				return varsFilePath, fileUploads, errors.New("File given in Variables does not Exists.")
+			}
+
+			fileIndex++
+			varsJson[key] = fmt.Sprintf("/ham-files/%d", fileIndex)
+			fileUploads[val.Value] = varsJson[key]
+		}
+	}
+	err = helpers.DumpJsonFile(varsJson, varsFilePath)
+	if err != nil {
+		return varsFilePath, fileUploads, err
+	}
+
+	return varsFilePath, fileUploads, nil
 }
 
 func trackRemoteServerProgress(host string, sshPrivateKey string) (SSHShellCode, error) {

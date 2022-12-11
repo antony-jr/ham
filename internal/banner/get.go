@@ -65,7 +65,8 @@ func GetMalformedJSONBanner(serverName string) {
 
 func GetRecipeBanner(name string, ver string, hash string) {
 	in := "# Recipe Information\n"
-	in += "**Name**: *%s* [%s]                           **SHA-256**: %s"
+	in += "**Name**: *%s* [%s]\n\n"
+	in += "**SHA-256**: %s"
 	in = fmt.Sprintf(in, name, ver, hash)
 
 	out, _ := glamour.Render(in, "auto")
