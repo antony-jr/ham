@@ -57,7 +57,7 @@ With **HAM**, we can scale the cloud down to zero, ham creates a temporary serve
 required files and variables over SSH, starts the build and tracks it. Even if the client program closes for some reason, the server is still running
 and building Android. Server destroys itself when the work is finished without wasting costly computing resources.
 
-**LineageOS 19.1 Signed Build for a Single Device(OnePlus 6) cost me about €0.50, the runtime of the build is around 5-6 hours.** I don't need to 
+**LineageOS 19.1 Signed Build for a Single Device(OnePlus 6) cost me about €0.30, the runtime of the build is around 2-3 hours.** I don't need to 
 stay awake for the build, it just runs over night and the server destroys itself when the job is done. **And the best part is, the client program
 can be run from Termux too, so I can just use my Android Phone to build a new Android OS for itself (remotely).**
 
