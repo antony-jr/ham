@@ -28,7 +28,7 @@ Create your own recipes or browse recipes at https://github.com/ham-community, a
  # Only Once, to Initialize Hetzner Cloud API
  ./ham-linux-amd64 init
 
- ./ham-linux-amd64 get ~@gh/enchilada-los19.1:with_gapps
+ ./ham-linux-amd64 get ~@gh/enchilada-los19.1:gapps
 
  # or without gapps and with F-Droid Priv Extensions
  ./ham-linux-amd64 get ~@gh/enchilada-los19.1
@@ -82,6 +82,15 @@ Specific flavor of the build can be separated by branches, for example ```with_g
 **This project has no association with "Hetzner Online GmbH" in any form or manner, This project is purely Community work
 and have no relationship with the company. This project purely exists for the community and will live if there is more contributions.**
 
+
+# Hetzner Referral Program
+
+Hetzner Online Gmbh has a referral program for loyal customers, if you signup using my referral link you will get free
+20 euros cloud credit which you can build a ton of LineageOS builds for any device you like. The only problem is that 
+Hetzner is pretty hard to register with but it is worth it. **I don't force you to use my referral link, it's totally upto
+you.** [Hetzner Referral Link](https://hetzner.cloud/?ref=66oUbG2e4jXS)
+
+Consider using the referral link as support towards this project.
 
 # License
 
