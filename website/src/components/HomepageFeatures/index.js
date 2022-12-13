@@ -5,31 +5,63 @@ import styles from './styles.module.css';
 const FeatureList = [
   {
     title: 'Easy to Use',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    Svg: require('@site/static/img/easy.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+	 Ham was made easy to use and user-friendly, it is very easy to use and hard to abuse,
+	 it has the most sane defaults to prevent economical loss for the user.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    title: 'Cross Platform',
+    Svg: require('@site/static/img/cross_platform.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+	 Ham client program can on multiple platforms and architectures including <b>Android
+	    itself using Termux Terminal Emulator</b>.
       </>
     ),
   },
   {
-    title: 'Powered by React',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    title: 'Hackable',
+    Svg: require('@site/static/img/hackable.svg').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+	 Ham uses a YAML recipe file held in a git repository, each device and ROM can have it's
+	 own repo with different recipes, different branches can add or remove elements that are
+	 built directly into the ROM.
+      </>
+    ),
+  },
+  {
+    title: 'Modern',
+    Svg: require('@site/static/img/modern.svg').default,
+    description: (
+      <>
+	 Ham YAML files are losely based on Github Actions YAML file, and are designed to keep everything
+	 modern, make things easy for the developers.
+      </>
+    ),
+  },
+  {
+    title: 'Super Fast',
+    Svg: require('@site/static/img/fast.svg').default,
+    description: (
+      <>
+	 Unlike a CI/CD, We don't use any container like Docker or LXC and directly run the build script
+	 on the VPS created by Hetzner Ubuntu 20.04 LTS image, this gives us extra edge on performance.
+      </>
+    ),
+  },
+  {
+    title: 'Very Low Cost',
+    Svg: require('@site/static/img/cheap.svg').default,
+    description: (
+      <>
+	 Unlike other cloud companies, Hetzner gives the best performance for the cost,
+	 LineageOS build for single device only cost <b>0.30 euros</b> which took only
+	 <b> 3 hours</b> to finish. That's just <b>32 cents</b> in the US. 
       </>
     ),
   },

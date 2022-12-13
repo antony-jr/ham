@@ -7,7 +7,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Ham',
-  tagline: 'Make Your Own Flavor of Android under €1',
+  tagline: 'Build Your Own Flavor of Android under One Euro',
   url: 'https://antonyjr.in',
   baseUrl: '/ham',
   onBrokenLinks: 'throw',
@@ -63,6 +63,12 @@ const config = {
           src: 'img/logo.svg',
         },
         items: [
+	  {
+	    href: '/#downloads',
+	    label: 'Downloads',
+	    position: 'left',
+	  },
+
           {
             type: 'doc',
             docId: 'intro',
@@ -93,7 +99,7 @@ const config = {
             title: 'Community',
             items: [
 	      {
-		label: 'Ham Community Recipes',
+		label: 'Ham Recipes',
 		href: 'https://github.com/ham-community',
 	      },
               {
