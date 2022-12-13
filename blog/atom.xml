@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+    <id>https://antonyjr.in/ham/blog</id>
+    <title>Ham Blog</title>
+    <updated>2022-12-14T00:00:00.000Z</updated>
+    <generator>https://github.com/jpmonette/feed</generator>
+    <link rel="alternate" href="https://antonyjr.in/ham/blog"/>
+    <subtitle>Ham Blog</subtitle>
+    <icon>https://antonyjr.in/ham/img/favicon.ico</icon>
+    <entry>
+        <title type="html"><![CDATA[Welcome to HAM Blogs]]></title>
+        <id>welcome</id>
+        <link href="https://antonyjr.in/ham/blog/welcome"/>
+        <updated>2022-12-14T00:00:00.000Z</updated>
+        <summary type="html"><![CDATA[HAM(Hetzner Android Make) was a long time dream of a project for me to be honest, I'm super lazy and]]></summary>
+        <content type="html"><![CDATA[<p>HAM(Hetzner Android Make) was a long time dream of a project for me to be honest, I'm super lazy and
+implement only a dozen of my ideas which annoys me a lot on a personal level. One of such project is
+HAM and it feels good to finally release it out in the public.</p><p>Thanks for showing interest in this project, I hope it will grow in the future, even if it does not,
+I really like this tool and will continue to support it in the future, at least for my use case.</p><p>This blog will be used to post custom device recipe or instructions for using HAM, I invite anyone
+to write on this blog on how they used ham to build LineageOS or AOSP for their device. Maybe git urls
+to use with ham to get that specific build. Anything related Android ROM building with HAM.</p><p>Thank you for your Time. If you like this project, please leave a Star at Github, This really helps to
+increase the trust on this project.</p><p>Yours,<br>
+<!-- -->Antony J.R</p>]]></content>
+        <author>
+            <name>Divya Antony J.R</name>
+            <uri>https://antonyjr.in</uri>
+        </author>
+        <category label="hello" term="hello"/>
+        <category label="welcome" term="welcome"/>
+        <category label="howdy" term="howdy"/>
+    </entry>
+</feed>
