@@ -15,7 +15,7 @@ export default function HomepageAndroid(): JSX.Element {
 	   run on pretty much everything go is supported which include Android.
 	</p>
 	<p align="center">
-	<video width="auto" height="900vh" muted={true} autoPlay={true} loop={true}>
+	   <video style={{maxWidth: "550px", width: "80%", height: "auto"}} muted={true} autoPlay={true} loop={true}>
 	   <source src={require("@site/static/vids/ham-phone.webm").default} type="video/webm" />
 	</video>
 	</p>
