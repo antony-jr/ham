@@ -1,0 +1,131 @@
+---
+title: Getting Started
+sidebar_position: 2
+---
+
+import DemoVideo from '@site/src/components/DemoVideo';
+
+You should register with Hetzner Cloud to use this tool, this process can be a little tough for those who live
+outside of EU but Hetzner is worth it. They ask for your Government issued identity, so scan your valid ID, make
+sure it's the original ID and not a photocopy which they do look out for.
+
+Your account registration itself might take 2-3 days but this is one time only, if you get blocked during the 
+registration, try with another email, chances are you submitted some wrong ID or Hetzner just found a problem.
+Keep trying or contact Hetzner support if you are stuck.
+
+Even for me it was quite the struggle getting to register with Hetzner, see my [blog post.](https://antonyjr.in/blog/post/2020-08-10-buying-a-cloud-instance-from-hetzner) You could also try using my [referral link](/docs/intro#hetzner-referral-program) to get free 20 euro cloud credit if you are a new Hetzner customer.
+
+After creating your Hetzner cloud account, move on to the next section on creating API key.
+
+## Creating your Hetzner Cloud API Key
+
+Log on to your Hetzner Cloud console, also **if you can**, enable **2FA** with **Authy** or any **TOTP** based app
+in your smartphone. I highly recommend Authy since you can recover your account from backup. **If you do enable
+2FA, make sure you can login into your account even if you lose your phone or else you will get into serious
+trouble if you can't pay your invoice.** Also have Authy installed in your Desktop if something goes bad with your
+phone. *Enabling 2FA is entirely upto you, if you have a strong password then that itself is fine in most cases.*
+
+Create a new project from your Dashboard, name it anything but I recommend calling the project **HAM**. Just to
+give some context. The default project should just hold your other servers, HAM project will only hold build
+servers you create using ham tool.
+
+<DemoVideo video="create_project"/>
+
+After creating the project, we will now generate a API key for this project, make sure to **never share this key
+with anyone**. You should only give this key to ham tool which does not leak it in anyway. The key will be stored 
+in  your computer's user directory so make sure you are building from your personal computer nobody has access to or a phone that nobody will misuse your personal files. (TL;DR don't use ham get in public computers, thats way 
+too dangerous.)
+
+<DemoVideo video="create_api_key"/>
+
+## Initializing HAM
+
+Now let's initialize ham with our copied Hetzner Cloud API Key.
+
+> You should not init ham while there is a ongoing build, this will cause undefinied behavior, also don't
+> delete any API keys while build is in progress. Always use ```ham clean``` before doing initialization
+
+After installing HAM into your platform, execute this in your terminal.
+
+```
+ ham init --key "YOUR HETZNER API KEY"
+```
+
+**OR**
+
+```
+ ham init
+ # Paste your Hetzner Cloud API Key in the Prompt
+ # it will not echo.
+```
+
+Now you will have a ```.ham.json``` configuration file in your user directory. This is the configuration file,
+you can copy this file to your ```~/.ham.json``` in any PC to port your config and no need to init if you copy
+the configuration file.
+
+<DemoVideo video="ham_init"/>
+
+## Creating Github Repo and API Key
+
+Github is used mostly by developers, but you can use it even if you are not doing active development. I recommend
+you to use it primarily to store your LineageOS build outputs. If you are building with GAPPS, make sure to make
+your repository private or else you might get warning from Google like how Cynogenmod got.
+
+Github account is free, create a Github account if you have not already have one. Then create a new repository
+for your device build output, make this repository private. (*Please Consider Starring this Project at [Github](https://github.com/antony-jr/ham), It helps 
+to improve the credibility of the project.*)
+
+<DemoVideo video="create_gh_project"/>
+
+Next we will generate a Github API key to allow releasing assets to our repository. Make sure to never share this
+Github API key other than when ham get asks you for it during the questions. **Make sure to select only the repository we 
+created earlier when creating the Github Token just to be safe. Next we also need ReadWrite access to Contents of the repo.
+No other permission is needed.** Copy the API key and keep it in a safe place.
+
+<DemoVideo video="gh_token"/>
+
+Now this is done, you can forgot about Github, when a ham recipe uses this API key to upload the builds, you will see the
+builds at the releases of the repository you created. Make sure you have access to your Github account, since when using
+private repo, you need to be logged in to download the builds to your computer to flash it to your phone.
+
+![Demo Releases](releases.png)
+
+## Creating Android Certificates ZIP
+
+In most recipes of ham, we require android certificates to sign your build, you can create android certificates
+very easily, usually you need to store this certificates in a secure place for future builds, if you lose these
+certificates, you can't update your LineageOS from a build which uses that key. We zip these certificates which
+will be used on the build server. 
+
+You can use the official ```make_key``` bash script if you are in linux, but if you are not then ham has a
+inbuilt implementation of what openssl does which you can use in any platform ham supports. If you do use the 
+official bash script, make sure to not encrypt your keys with passwords which complicates everything a lot.
+
+```
+subject='/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+mkdir ~/.android-certs
+for x in releasekey platform shared media networkstack testkey; do \
+    ./development/tools/make_key ~/.android-certs/$x "$subject"; \
+done
+```
+
+Using HAM it's much simple,
+
+```
+ ham genkey --country US --state California --locality "Mountain View" --org Android --org-unit Android --common-name Android --email android@android.com
+```
+
+<DemoVideo video="genkey"/>
+
+You will now have **AndroidCerts.zip** file in the working directory, use this ZIP file to use with ```ham get```.
+**Make sure to keep this ZIP file safe and nobody but you have access to it.** This ZIP file has your Android Certificates which
+is self-signed by you.
+
+You can give a custom filename for the zip file with ```--output``` argument to ```ham genkey```.
+
+**You can change the Country, State and other information on the certificate to reflect your Information.**
+
+
+## Conclusion
+
+Now you can use ```ham get``` to get a build of your ham recipe of choice. You can now continue to Quickstart.

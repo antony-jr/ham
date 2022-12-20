@@ -30,43 +30,6 @@ sure that even if the build errors out, it destroys itself. This makes each AOSP
 It also runs on **Termux** so you can build AOSP right from your Android Phone.
 
 
-## Quickstart
-
-Did you know that you can re-lock your Bootloader with OnePlus devices, upto OnePlus 7 just like Google Pixel phones
-which CalyxOS is doing. Having the bootloader unlocked is not a good thing, it's actually worse. Also LineageOS nightlies
-and other ROM builders don't enable Android Verified Boot which is another security layer by Android. All these security
-features are lost when you simply use a pre-built custom rom. This is not good, the reason for HAM to exists is to make
-it easy to build their own Android from source without relying on others to pre-build them which will be buggy and
-unreliable. Also you could re-lock bootloader on OnePlus devices when you build your own LineageOS.
-
-One of the ham community recipe is to do just that, this ham recipe takes in a Android Certs Zip file which contains
-all the android certificates which should not have passwords or encryption (See [LineageOS Docs on Signing Builds](https://forum.xda-developers.com/t/guide-re-locking-the-bootloader-on-the-oneplus-6t-with-a-self-signed-build-of-los.4113743/)) created by the user itself and builds a LineageOS ROM which can be flashed by the user and the bootloader
-can be locked after flashing their public key to the ```avb_custom_key``` partition. XDA forum for more instructions is [here](https://forum.xda-developers.com/t/guide-re-locking-the-bootloader-on-the-oneplus-6t-with-a-self-signed-build-of-los.4113743/). The XDA forum shows how to flash the output of this ROM and your public key. **The pkmd.bin file will be in the 
-recovery zip file which will also have the boot partition for you to use.**
-
-Create your own recipes or browse recipes at https://github.com/ham-community, and then execute this in your terminal,
-
-```
- # Currently only one recipe exists as said before,
- # This is for building LineageOS 19.1 for OnePlus 6
- # Devices. (Self Signed) (Which can be used with locked
- # bootloader.
-
- # Only Once, to Initialize Hetzner Cloud API
- ./ham-linux-amd64 init
-
- # You can't flash or use TWRP when locking bootloader,
- # only LineageOS recovery. No root for now. and Root
- # is not recommended. Gapps is build right into the ROM
- ./ham-linux-amd64 get ~@gh/enchilada-los19.1:gapps
-
- # or without gapps and with F-Droid Priv Extensions
- ./ham-linux-amd64 get ~@gh/enchilada-los19.1
-```
-
-That's it, now your output should be uploaded by how the recipe describes. This recipe uploads the output to a 
-github repo given by the user. The repo can be private so you won't get any letter from Google for using gapps.
-
 ## How it Works
 
 Ham has two programs, namely ```ham``` and ```ham-build```, **ham-build** program can only run on linux, this is by design
@@ -276,7 +239,8 @@ Hetzner Online Gmbh has a referral program for loyal customers, if you signup us
 Hetzner is pretty hard to register with but it is worth it. **I don't force you to use my referral link, it's totally upto
 you.** [Hetzner Referral Link](https://hetzner.cloud/?ref=66oUbG2e4jXS)
 
-Consider using the referral link as support towards this project.
+Consider using the referral link as support towards this project. You can also star the project to make it more
+credible.
 
 ## License
 

@@ -7,6 +7,7 @@ import (
 	"github.com/antony-jr/ham/internal/cmd/clean"
 	"github.com/antony-jr/ham/internal/cmd/get"
 	"github.com/antony-jr/ham/internal/cmd/initialize"
+	"github.com/antony-jr/ham/internal/cmd/genkey"
 )
 
 type rootT struct {
@@ -35,5 +36,6 @@ func Run() error {
 		cli.Tree(initialize.NewCommand()),
 		cli.Tree(get.NewCommand()),
 		cli.Tree(clean.NewCommand()),
+		cli.Tree(genkey.NewCommand()),
 	).Run(os.Args[1:])
 }

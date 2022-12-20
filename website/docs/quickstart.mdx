@@ -1,0 +1,118 @@
+---
+title: Quickstart
+sidebar_position: 3
+---
+
+**Please read "Getting Started" before using this Quickstart, you will be clueless if you skip that part.**
+
+From Getting Started, you should have HAM initialized in your PC/Phone, Also make sure you have the record of your
+**Github API Key** you created in the previous chapter. Also remember your **repository** and **username** of your Github
+account. You should also have your **AndroidCerts.zip** file handy. 
+
+Community recipes of HAM is located at https://github.com/ham-community, you can request to move your own repository 
+to this organization to make it a community recipe. Community recipe means it is trusted to a certain level, if you trust
+the maintainer of this project then you can trust the community recipe, it will not do anything shady. **Please do remember
+that a evil HAM recipe can steal your Github API Key and other files so please be safe.** Always check what the recipe does,
+and confirm it by yourself.
+
+You can get a build of a recipe by giving ```ham get``` a directory or git repository url or a github repo. You can also give
+a tag or branch to use.
+
+The **~ (tilde)** symbol represents the **ham-community** organization name and symbolizes the home when using a github 
+repo as argument to ```ham get```
+
+**Example:** ```ham get ~@gh/enchilada-los19.1``` simply points to https://github.com/ham-community/enchilada-los19.1 git repository. You may replace the **~ (tilde)** with any valid github username.
+
+```
+Recipe from Ham Community:
+   ham get ~@gh/enchilada_los18.1
+   ham get ~@gh/enchilada_los18.1:bleeding
+
+Recipe from Github:
+   ham get user@gh/repo:branch
+   ham get antony-jr@gh/enchilada_los18.1
+   ham get antony-jr@gh/ecnhilada_los18.1:dev
+
+Recipe from Git:
+   ham get https://antonyjr.in/enchilada_los181.git
+
+Local Recipe:
+   ham get ./examples/enchilada_los18.1
+```
+
+You can also mention a tag or branch with ```:branch``` with git url or with github or with community recipes.
+
+For example, ```ham get ~@gh/enchilada-los19.1:gapps``` points to the same repo but uses the ```gapps``` branch which includes
+*MindTheGapps* right into the ROM.
+
+
+## Getting a Build for OnePlus 6 from Community
+
+Did you know that you can re-lock your Bootloader with OnePlus devices, upto OnePlus 7 just like Google Pixel phones
+which CalyxOS is doing. Having the bootloader unlocked is not a good thing, it's actually worse. Also LineageOS nightlies
+and other ROM builders don't enable Android Verified Boot which is another security layer by Android. All these security
+features are lost when you simply use a pre-built custom rom. This is not good, the reason for HAM to exists is to make
+it easy to build their own Android from source without relying on others to pre-build them which will be buggy and
+unreliable. Also you could re-lock bootloader on OnePlus devices when you build your own LineageOS.
+
+See [XDA Forum post on re-locking your OnePlus 6 Device with Custom Key](https://forum.xda-developers.com/t/guide-re-locking-the-bootloader-on-the-oneplus-6t-with-a-self-signed-build-of-los.4113743/). The ham recipe below exactly does what the forum
+post instructs everyone, the great feature of ham is to make custom builds like this very easy. **The pkmd.bin file will be 
+in the  recovery zip file which will also have the boot partition for you to use.**
+
+The following community recipe will ask for **AndroidCerts.zip** file, **Github Username**, **Github Repo** to upload output, **Github API Key** and a **Updater URL** which you can ignore.
+
+```
+ # Currently only one recipe exists as said before,
+ # This is for building LineageOS 19.1 for OnePlus 6
+ # Devices. (Self Signed) (Which can be used with locked
+ # bootloader.)
+
+ # See Getting Started to initialize your Ham
+
+ # You can't flash or use TWRP when locking bootloader,
+ # only LineageOS recovery. No root for now. and Root
+ # is not recommended. Gapps is build right into the ROM
+ ham get ~@gh/enchilada-los19.1:gapps
+
+ # or without gapps and with F-Droid Priv Extensions
+ ham get ~@gh/enchilada-los19.1
+```
+
+That's it, now your output should be uploaded by how the recipe describes. This recipe uploads the output to a 
+github repo given by the user. The repo can be private so you won't get any letter from Google for using gapps. You can
+stop the ```ham get``` command after it starts tracking the remote build, don't stop it before it tracks. The build will 
+run even if the client is closed. The build server will destroy itself after each build. 
+
+The output should be in your github releases of the repo you have given during the Questions,
+
+![Demo Releases](releases.png)
+
+**Always run ```ham clean``` after you get your output builds just to be safe. 
+Running this command will destroy all servers if found.**
+
+## Creating Answers.json
+
+You can give ```ham get``` a json file which has all answers to the questions asked by a ham recipe, this way you can
+run ham in a CI/CD or without any user intervention. Create a simple json file with key and value pair, the key should be
+the ```id``` in of the ```argument``` present in the ham recipe.
+
+See the following example,
+
+```
+{
+   "github_token": "github_pat_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx1",
+   "github_user": "antony-jr",
+   "github_repo": "op6-los",
+   "android_certs": "/home/antonyjr/Developer/AndroidCerts.zip",
+   "updater_url": ""
+}
+```
+
+You can now pass this json file to avoid answering the questions yourself, questions will only be asked when you start 
+a build, for tracking a build on a different computer, you only need to copy the ```~/.ham.json``` file to the other computer.
+
+Now you can use the ```answers.json``` file like this,
+
+```
+ ham get -a answers.json ~@gh/enchilada-los19.1:gapps
+```
