@@ -3,7 +3,11 @@ title: Quickstart
 sidebar_position: 3
 ---
 
+:::danger
+
 **Please read "Getting Started" before using this Quickstart, you will be clueless if you skip that part.**
+
+:::
 
 From Getting Started, you should have HAM initialized in your PC/Phone, Also make sure you have the record of your
 **Github API Key** you created in the previous chapter. Also remember your **repository** and **username** of your Github
@@ -83,12 +87,32 @@ github repo given by the user. The repo can be private so you won't get any lett
 stop the ```ham get``` command after it starts tracking the remote build, don't stop it before it tracks. The build will 
 run even if the client is closed. The build server will destroy itself after each build. 
 
+:::danger
+
+Dont run ```ham clean``` if a build is currently running on the remote server, and only close ```ham get``` command
+after the remote tracking is started.
+
+:::
+
+:::danger 
+
+**Always run ```ham clean``` after you get your output builds just to be safe. 
+Running this command will destroy all servers if found.**
+
+:::
+
+:::tip
+
+You may copy the ```~/.ham.json``` file to other devices to enable it to track a build that is initialized on 
+any other which has the same configuration. Don't init on new devices, simply copy this configuration to new
+devices 
+
+:::
+
 The output should be in your github releases of the repo you have given during the Questions,
 
 ![Demo Releases](releases.png)
 
-**Always run ```ham clean``` after you get your output builds just to be safe. 
-Running this command will destroy all servers if found.**
 
 ## Creating Answers.json
 

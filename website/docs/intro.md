@@ -3,19 +3,23 @@ title: Introduction
 sidebar_position: 1
 ---
 
-> This is alpha stage software, even though the builder and client program works well to a certain degree, we
-> still lack recipes for different devices. Mostly legacy devices need recipes since LOS does not support them.
->
-> I ask help from the community to create git repositories and follow the HAM recipe syntax to create LineageOS
-> builds for legacy devices that LOS is supported. No need to port it to the latest LOS version, that is the work
-> done by LOS community, all we need to do is create recipes for such devices and make it build to a stable LOS
-> version with good platform security for Android. Vendor security cannot be improved since it's closed source.
-> You can also port to the latest version but stability over features.
->
-> Also recipes for OnePlus Devices to make ROMs which can run on locked bootloader. Until we get atleast 10 recipes
-> this project is considered a "Work in Progress".
->
-> After you create a git repository with a stable ham recipe, request to move the repo to https://github.com/ham-community
+:::info
+
+This is alpha stage software, even though the builder and client program works well to a certain degree, we
+still lack recipes for different devices. Mostly legacy devices need recipes since LOS does not support them.
+
+I ask help from the community to create git repositories and follow the HAM recipe syntax to create LineageOS
+builds for legacy devices that LOS is supported. No need to port it to the latest LOS version, that is the work
+done by LOS community, all we need to do is create recipes for such devices and make it build to a stable LOS
+version with good platform security for Android. Vendor security cannot be improved since it's closed source.
+You can also port to the latest version but stability over features.
+
+Also recipes for OnePlus Devices to make ROMs which can run on locked bootloader. Until we get atleast 10 recipes
+this project is considered a "Work in Progress".
+
+After you create a git repository with a stable ham recipe, request to move the repo to https://github.com/ham-community
+
+:::
 
 HAM (Hetzner Android Make) is a Simple tool written in GO which can build LineageOS (or AOSP) from Source using 
 Hetzner Cloud. **Build your Own Flavor of Android Under €1.** (Run Directly from your Android Phone too..)

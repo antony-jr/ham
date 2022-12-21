@@ -1,0 +1,8 @@
+{
+  "label": "Ham Recipe",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "Ham recipes are simple directories which has ham.yaml or ham.yml file at the root of these simple directories. This simple directory can contain anything the recipe author wants to have, this includes a version control too, so ham recipes can be a git repository and it is recommended to be that way. The requirement for ham to see it as a recipe is that it has a valid ham.yml file and it follows the syntax that ham defines."
+  }
+}

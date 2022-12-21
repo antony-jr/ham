@@ -73,8 +73,9 @@ const config = {
             type: 'doc',
             docId: 'intro',
             position: 'left',
-            label: 'Tutorial',
+            label: 'Documentation',
           },
+
           {to: '/blog', label: 'Blog', position: 'left'},
           {
             href: 'https://github.com/antony-jr/ham',
@@ -90,9 +91,17 @@ const config = {
             title: 'Docs',
             items: [
               {
-                label: 'Tutorial',
+                label: 'Documentation',
                 to: '/docs/intro',
               },
+	      {
+		label: 'Get Started',
+		to: '/docs/get_started',
+	      },
+	      {
+		label: 'Ham Recipe Specification',
+		to: '/docs/category/ham-recipe',
+	      },
             ],
           },
           {
