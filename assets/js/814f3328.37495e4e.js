@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkwebsite=self.webpackChunkwebsite||[]).push([[535],{5641:e=>{e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Relocking your Bootloader with LineageOS 19.1 with MindTheGapps on OnePlus 6","permalink":"/ham/blog/enchilada-los19-guide-relocking"},{"title":"Welcome to HAM Blogs","permalink":"/ham/blog/welcome"}]}')}}]);
