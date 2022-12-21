@@ -208,7 +208,6 @@ func makeKey(country string,
 		return nil, nil, err
 	}
 
-	// Create Certificate
 	oidEmailAddress := asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 1}
 	subj := pkix.Name{
 		CommonName:         cName,
