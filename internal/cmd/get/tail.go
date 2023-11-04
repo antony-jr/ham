@@ -13,7 +13,7 @@ func TailRemoteStdout(host string, privKey string, sum string) chan string {
 	output := make(chan string)
 	go func() {
 		for {
-			command := fmt.Sprintf("tail -f -n 5 /tmp/%s.ham.stdout \n", sum)
+			command := fmt.Sprintf("tail -F -n 5 /tmp/%s.ham.stdout \n", sum)
 			client, err := GetSSHClient(host, privKey)
 			if err != nil {
 				time.Sleep(time.Second * time.Duration(5))

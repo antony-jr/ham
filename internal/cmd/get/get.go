@@ -169,10 +169,9 @@ Local Recipe:
 
 				// Parse the string
 				git_url, git_branch := ParseGitRemoteString(recipe_src)
-				orig_branch := git_branch
 
 				if git_branch == "" {
-					git_branch = "default"
+					git_branch = "main"
 				}
 
 				_ = tuiSpinnerMsg.StopMessage()
@@ -188,7 +187,6 @@ Local Recipe:
 				remove = true
 				usedGit = true
 				gitUrl = git_url
-				gitBranch = orig_branch
 
 				tuiSpinnerMsg.ShowMessage(fmt.Sprintf("Cloning Into %s...", dir))
 
