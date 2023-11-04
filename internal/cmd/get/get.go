@@ -187,6 +187,7 @@ Local Recipe:
 				remove = true
 				usedGit = true
 				gitUrl = git_url
+				gitBranch = git_branch
 
 				tuiSpinnerMsg.ShowMessage(fmt.Sprintf("Cloning Into %s...", dir))
 
