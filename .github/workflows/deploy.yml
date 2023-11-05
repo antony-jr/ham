@@ -22,7 +22,7 @@ jobs:
       with:
         ndk-version: r25c
         add-to-path: false 
-        local-cache: true
+        local-cache: false
 
     - name: Go Build 
       run: ./build-all.sh
