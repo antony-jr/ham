@@ -170,8 +170,11 @@ Local Recipe:
 				// Parse the string
 				git_url, git_branch := ParseGitRemoteString(recipe_src)
 
+				gitUrl = git_url
+				gitBranch = git_branch
+
 				if git_branch == "" {
-					git_branch = "main"
+					git_branch = "Default"
 				}
 
 				_ = tuiSpinnerMsg.StopMessage()
@@ -186,15 +189,19 @@ Local Recipe:
 				dir = uniqueTempDir
 				remove = true
 				usedGit = true
-				gitUrl = git_url
-				gitBranch = git_branch
 
 				tuiSpinnerMsg.ShowMessage(fmt.Sprintf("Cloning Into %s...", dir))
 
-				_, err = git.PlainClone(dir, false, &git.CloneOptions{
-					URL:           gitUrl,
-					ReferenceName: plumbing.NewBranchReferenceName(gitBranch),
-				})
+				if gitBranch == "" {
+					_, err = git.PlainClone(dir, false, &git.CloneOptions{
+						URL: gitUrl,
+					})
+				} else {
+					_, err = git.PlainClone(dir, false, &git.CloneOptions{
+						URL:           gitUrl,
+						ReferenceName: plumbing.NewBranchReferenceName(gitBranch),
+					})
+				}
 
 				if err != nil {
 					_ = os.RemoveAll(dir)
