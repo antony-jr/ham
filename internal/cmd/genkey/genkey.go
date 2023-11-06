@@ -105,12 +105,61 @@ func NewCommand() *cli.Command {
 				keySize)
 
 			keyNames := []string{
+				"bluetooth",
+				"cyngn-app",
+				"sdk_sandbox",
+				"testcert",
+				"verity",
 				"releasekey",
 				"platform",
 				"shared",
 				"media",
 				"networkstack",
 				"testkey",
+			}
+
+			apexKeys := []string{
+				"com.android.adbd",
+				"com.android.adservices",
+				"com.android.adservices.api",
+				"com.android.appsearch",
+				"com.android.art",
+				"com.android.bluetooth",
+				"com.android.btservices",
+				"com.android.cellbroadcast",
+				"com.android.compos",
+				"com.android.connectivity.resources",
+				"com.android.conscrypt",
+				"com.android.extservices",
+				"com.android.hotspot2.osulogin",
+				"com.android.i18n",
+				"com.android.ipsec",
+				"com.android.media",
+				"com.android.media.swcodec",
+				"com.android.mediaprovider",
+				"com.android.nearby.halfsheet",
+				"com.android.networkstack.tethering",
+				"com.android.neuralnetworks",
+				"com.android.ondevicepersonalization",
+				"com.android.os.statsd",
+				"com.android.permission",
+				"com.android.resolv",
+				"com.android.runtime",
+				"com.android.safetycenter.resources",
+				"com.android.scheduling",
+				"com.android.sdkext",
+				"com.android.support.apexer",
+				"com.android.telephony",
+				"com.android.tethering",
+				"com.android.tzdata",
+				"com.android.uwb",
+				"com.android.uwb.resources",
+				"com.android.virt",
+				"com.android.vndk.current",
+				"com.android.wifi",
+				"com.android.wifi.dialog",
+				"com.android.wifi.resources",
+				"com.qorvo.uwb",
 			}
 
 			keys := map[string]keyT{}
@@ -131,6 +180,26 @@ func NewCommand() *cli.Command {
 				}
 
 				keys[keyName] = keyT{
+					Certificate: cert,
+					PK8:         pk8,
+				}
+			}
+
+			for _, apexName := range apexKeys {
+				fmt.Printf("   - Generating APEX Key %s...\n", apexName)
+				cert, pk8, err := makeKey(country,
+					state,
+					city,
+					org,
+					orgUnit,
+					commonName,
+					email,
+					4096)
+				if err != nil {
+					return err
+				}
+
+				keys[apexName] = keyT{
 					Certificate: cert,
 					PK8:         pk8,
 				}
