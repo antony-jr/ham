@@ -288,7 +288,7 @@ Local Recipe:
 			// whenver we see them.
 			// This is highly unlikely that our ham leaves dead servers
 			// but this is just a precaution.
-			err = helpers.DestroyAllDeadServers(&client.Server)
+			err = helpers.DestroyAllDeadServers(client)
 			if err != nil {
 				return err
 			}
@@ -340,7 +340,7 @@ Local Recipe:
 
 			// This is a safety net.
 			destroyServer := !argv.KeepServer
-			defer deferDeleteServer(&client.Server, &destroyServer, serverName)
+			defer deferDeleteServer(client, &destroyServer, serverName)
 
 			// Hmm... My ISP and mostly a lot of dumb ISP's don't support IPv6
 			// and tunnel is a waste of time. Also IPv4 cost a little extra on
@@ -408,7 +408,8 @@ Local Recipe:
 					fmt.Printf(" %s Created Server\n", checkMark)
 				}
 
-				err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
+				volDevice := currentBuildServer.Volumes[0].LinuxDevice
+				err = doInitialize(ipAddr, config.SSHPrivateKey, volDevice, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
 				if err != nil {
 					return err
 				}
@@ -510,7 +511,12 @@ Local Recipe:
 						tries = 0
 						defer os.Remove(varsFilePath)
 
-						err = doInitialize(ipAddr, config.SSHPrivateKey, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
+						volDevice := ""
+						if currentBuildServer != nil {
+							volDevice = currentBuildServer.Volumes[0].LinuxDevice
+						}
+
+						err = doInitialize(ipAddr, config.SSHPrivateKey, volDevice, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
 						if err != nil {
 							return err
 						}
@@ -556,7 +562,7 @@ Local Recipe:
 									"Cannot Get SSH Client (" + err.Error() + "), But Server is Kept and Still Running.")
 							}
 
-							delErr := helpers.TryDeleteServer(&client.Server, serverName, 20, 5)
+							delErr := helpers.TryDeleteServer(client, serverName, 20, 5)
 							if delErr != nil {
 								banner.GetConnectFailBanner(serverName)
 								return delErr
@@ -581,7 +587,7 @@ Local Recipe:
 							return errors.New("Malformed JSON from Build Server, But Server is Kept and Still Running.")
 						}
 
-						delErr := helpers.TryDeleteServer(&client.Server, serverName, 20, 5)
+						delErr := helpers.TryDeleteServer(client, serverName, 20, 5)
 						if delErr != nil {
 							banner.GetMalformedJSONBanner(serverName)
 							return delErr
@@ -596,7 +602,7 @@ Local Recipe:
 							return errors.New("Remote Build Failed, But Server is Kept and Still Running.")
 						}
 
-						delErr := helpers.TryDeleteServer(&client.Server, serverName, 20, 5)
+						delErr := helpers.TryDeleteServer(client, serverName, 20, 5)
 						if delErr != nil {
 							banner.GetBuildFailedBanner(serverName)
 							return delErr
@@ -607,7 +613,7 @@ Local Recipe:
 					} else {
 						tries++
 						if tries >= 3 {
-							delErr := helpers.TryDeleteServer(&client.Server, serverName, 20, 5)
+							delErr := helpers.TryDeleteServer(client, serverName, 20, 5)
 							if delErr != nil {
 								return delErr
 							}
@@ -678,14 +684,15 @@ Local Recipe:
 // it can try to delete any created server. The state is checked if
 // we have to delete the server since it may not be desired by the
 // user.
-func deferDeleteServer(sclient *hcloud.ServerClient, destroy *bool, serverName string) {
+func deferDeleteServer(client *hcloud.Client, destroy *bool, serverName string) {
 	if destroy != nil && *destroy {
-		helpers.TryDeleteServer(sclient, serverName, 5, 5)
+		helpers.TryDeleteServer(client, serverName, 5, 5)
 	}
 }
 
 func doInitialize(ipAddr string,
 	privateKey string,
+	volumeLinuxDevice string,
 	varsFilePath string,
 	fileUploads map[string]string,
 	usedGit bool,
@@ -926,6 +933,31 @@ func doInitialize(ipAddr string,
 	}
 
 	_ = spinnerMsg.StopMessage()
+
+	if volumeLinuxDevice != "" {
+		spinnerMsg.ShowMessage("Mounting Volume... ")
+
+		mountStatus, err := tryExec("mountpoint /ham-build")
+		if err != nil {
+			return err
+		}
+
+		if strings.Contains(mountStatus, "not a mountpoint") {
+			_, err = tryExec(fmt.Sprintf("mkfs.ext4 %s", volumeLinuxDevice))
+			if err != nil {
+				return err
+			}
+
+			_, err = tryExec(fmt.Sprintf("mount -o discard,defaults %s /ham-build", volumeLinuxDevice))
+
+			if err != nil {
+				return err
+			}
+
+		}
+
+		_ = spinnerMsg.StopMessage()
+	}
 
 	_, err = tryExec("echo 'finished' > /tmp/ham.init.finished")
 	if err != nil {

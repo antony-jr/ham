@@ -124,7 +124,7 @@ func NewCommand() *cli.Command {
 			// Destroy server
 			// on close.
 			if !argv.KeepServer {
-				defer destroyCurrentServer(&client.Server, hf.SHA256Sum)
+				defer destroyCurrentServer(client, hf.SHA256Sum)
 			}
 
 			vars, err := helpers.ReadVarsJsonFile(argv.VarsPath)
@@ -388,11 +388,11 @@ func checkErrorStatus(state *statusT, err error) error {
 	return err
 }
 
-func destroyCurrentServer(sclient *hcloud.ServerClient, UniqueID string) {
+func destroyCurrentServer(client *hcloud.Client, UniqueID string) {
 	serverName := helpers.ServerNameFromSHA256(UniqueID)
 	fmt.Println("Destroying ", serverName)
 
-	helpers.TryDeleteServer(sclient, serverName, 20, 5)
+	helpers.TryDeleteServer(client, serverName, 20, 5)
 }
 
 func statusServer(state *statusT) {

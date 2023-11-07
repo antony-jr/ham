@@ -58,6 +58,43 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 	}
 
 	startAfterCreate := true
+	automountVol := false
+
+	// We need Special Volume of Size 400 GB
+	// to hold only the lineage os build,
+	// this will future proof this app.
+	volCreateOpts := hcloud.VolumeCreateOpts{
+		Name:      serverName + "-vol",
+		Size:      400,
+		Location:  location,
+		Automount: &automountVol,
+	}
+
+	err = volCreateOpts.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create Volume of 400 GiB
+	volCreateResult, _, err := client.Volume.Create(
+		context.Background(),
+		volCreateOpts,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Action Status and Error
+	ok := false
+	errMsg := ""
+
+	// Check Current Action First
+	checkAction(client, volCreateResult.Action, &ok, &errMsg)
+	if !ok {
+		return nil, errors.New(errMsg)
+	}
+
 	// Server Creation Options
 	serverCreateOpts := hcloud.ServerCreateOpts{
 		Name:             serverName,
@@ -71,10 +108,21 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 			EnableIPv4: true,
 			EnableIPv6: false,
 		},
+		Volumes: []*hcloud.Volume{volCreateResult.Volume},
 	}
 
 	err = serverCreateOpts.Validate()
 	if err != nil {
+		// Destroy all Volumes we created before\
+		_, volErr := client.Volume.Delete(
+			context.Background(),
+			volCreateResult.Volume,
+		)
+
+		if volErr != nil {
+			return nil, err
+		}
+
 		return nil, err
 	}
 
@@ -85,29 +133,41 @@ func CreateServer(client *hcloud.Client, server *hcloud.ServerType, serverName s
 	)
 
 	if err != nil {
+
+		// Destroy all Volumes we created before\
+		_, volErr := client.Volume.Delete(
+			context.Background(),
+			volCreateResult.Volume,
+		)
+
+		if volErr != nil {
+			return nil, err
+		}
+
 		return nil, err
 	}
 
 	// Wait till we Success or Failure
 	// result from Action that is currently
 	// running.
-	ok := false
-	errMsg := ""
+	ok = false
+	errMsg = ""
 
 	// Check Current Action First
 	checkAction(client, createResult.Action, &ok, &errMsg)
 	if !ok {
+		// Destroy all Volumes we created before\
+		_, volErr := client.Volume.Delete(
+			context.Background(),
+			volCreateResult.Volume,
+		)
+
+		if volErr != nil {
+			return nil, err
+		}
+
 		return nil, errors.New(errMsg)
 	}
-
-	// Loop Over all Next Actions and
-	// See if it's ok
-	// for _, action := range createResult.NextActions {
-	//	checkAction(action, &ok, &errMsg)
-	//	if !ok {
-	// return nil, errors.New(errMsg)
-	//	}
-	//}
 
 	return createResult.Server, nil
 }
@@ -139,7 +199,7 @@ func checkAction(client *hcloud.Client, action *hcloud.Action, ok *bool, errMsg 
 			*ok = true
 		} else if targetAction.Status == hcloud.ActionStatusError {
 			*ok = false
-			*errMsg = "Server Create Action Failed (" + action.ErrorMessage + ")"
+			*errMsg = "Action Failed (" + action.ErrorMessage + ")"
 		}
 		break
 	}

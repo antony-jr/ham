@@ -54,7 +54,7 @@ func NewCommand() *cli.Command {
 			}
 
 			fmt.Println("Destroying all HAM Dead Servers.")
-			err = helpers.DestroyAllDeadServers(&client.Server)
+			err = helpers.DestroyAllDeadServers(client)
 			if err != nil {
 				return err
 			}
@@ -86,6 +86,7 @@ func destroyHamServers(client *hcloud.Client) error {
 			continue
 		}
 
+		serverName := server.Name
 		fmt.Printf("Destroying... %s\n", server.Name)
 		result, _, err := client.Server.DeleteWithResult(
 			context.Background(),
@@ -101,6 +102,12 @@ func destroyHamServers(client *hcloud.Client) error {
 		checkAction(client, result.Action, &ok, &errMsg)
 		if !ok {
 			return errors.New(errMsg)
+		}
+
+		// Delete Volumes too
+		err = helpers.DeleteVolume(&client.Volume, serverName)
+		if err != nil {
+			return err
 		}
 	}
 

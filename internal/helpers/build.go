@@ -34,7 +34,9 @@ func ServerNameFromSHA256(sum string) string {
 //
 // "If you are 1 day old then you are dead to me."
 // -- Antony J.R
-func DestroyAllDeadServers(sclient *hcloud.ServerClient) error {
+func DestroyAllDeadServers(client *hcloud.Client) error {
+	sclient := &client.Server
+	vclient := &client.Volume
 	servers, err := sclient.All(
 		context.Background(),
 	)
@@ -54,6 +56,7 @@ func DestroyAllDeadServers(sclient *hcloud.ServerClient) error {
 			continue
 		}
 
+		serverName := server.Name
 		diff := now.Sub(server.Created)
 		hours := int(diff.Hours())
 
@@ -62,22 +65,37 @@ func DestroyAllDeadServers(sclient *hcloud.ServerClient) error {
 				context.Background(),
 				server,
 			)
+			_ = DeleteVolume(vclient, serverName)
 		}
 	}
 
 	return nil
 }
 
-func TryDeleteServer(sclient *hcloud.ServerClient, serverName string, maxTries int, interval int) error {
+func TryDeleteServer(client *hcloud.Client, serverName string, maxTries int, interval int) error {
+	sclient := &client.Server
+	vclient := &client.Volume
 	delTries := 0
 	for {
 		delErr := DeleteServer(sclient, serverName)
-		if delErr == nil {
-			return nil
-		}
 
-		if delErr.Error() == "Server Not Found" {
-			return nil
+		if delErr == nil || delErr.Error() == "Server Not Found" {
+			tries := 0
+
+			for {
+				err := DeleteVolume(vclient, serverName)
+				if err == nil {
+					break
+				}
+
+				tries++
+				fmt.Println("Destroying Volume Failed. Retrying... ")
+				time.Sleep(time.Second * time.Duration(interval))
+
+				if tries > maxTries {
+					return errors.New("Cannot Destroy Remote Volume. " + err.Error())
+				}
+			}
 		}
 
 		delTries++
@@ -115,6 +133,35 @@ func DeleteServer(sclient *hcloud.ServerClient, serverName string) error {
 	}
 
 	return errors.New("Server Not Found")
+}
+
+func DeleteVolume(vclient *hcloud.VolumeClient, serverName string) error {
+	volName := fmt.Sprintf("%s-vol", serverName)
+	vols, err := vclient.All(
+		context.Background(),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	for _, volume := range vols {
+		if volume.Name == volName {
+			_, err := vclient.Delete(
+				context.Background(),
+				volume,
+			)
+
+			if err != nil {
+				return err
+			}
+
+			return nil
+
+		}
+	}
+
+	return errors.New("Volume Not Found")
 }
 
 func GetServerAgeInHours(sclient *hcloud.ServerClient, serverName string) (int, error) {

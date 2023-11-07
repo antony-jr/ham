@@ -2,9 +2,9 @@ package get
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"time"
-	"io"
 
 	"golang.org/x/crypto/ssh"
 )
