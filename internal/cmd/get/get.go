@@ -407,8 +407,13 @@ Local Recipe:
 					_ = tuiSpinnerMsg.StopMessage()
 					fmt.Printf(" %s Created Server\n", checkMark)
 				}
+				
+				volDevice, err := helpers.GetVolumeLinuxDeviceForServer(client, serverName)
+				if err != nil {
+					return err
+				}
+				fmt.Printf(" %s Volume Device: %s\n", checkMark, volDevice)
 
-				volDevice := currentBuildServer.Volumes[0].LinuxDevice
 				err = doInitialize(ipAddr, config.SSHPrivateKey, volDevice, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
 				if err != nil {
 					return err
@@ -511,10 +516,11 @@ Local Recipe:
 						tries = 0
 						defer os.Remove(varsFilePath)
 
-						volDevice := ""
-						if currentBuildServer != nil {
-							volDevice = currentBuildServer.Volumes[0].LinuxDevice
+						volDevice, err := helpers.GetVolumeLinuxDeviceForServer(client, serverName)
+						if err != nil {
+							return err
 						}
+						fmt.Printf(" %s Volume Device: %s\n", checkMark, volDevice)
 
 						err = doInitialize(ipAddr, config.SSHPrivateKey, volDevice, varsFilePath, fileUploads, usedGit, gitUrl, gitBranch, dir, argv.TestingBinary)
 						if err != nil {
@@ -937,21 +943,21 @@ func doInitialize(ipAddr string,
 	if volumeLinuxDevice != "" {
 		spinnerMsg.ShowMessage("Mounting Volume... ")
 
-		mountStatus, err := tryExec("mountpoint /ham-build")
+		mountStatus, err := tryExec("mountpoint /ham-build || true")
 		if err != nil {
 			return err
 		}
 
 		if strings.Contains(mountStatus, "not a mountpoint") {
-			_, err = tryExec(fmt.Sprintf("mkfs.ext4 %s", volumeLinuxDevice))
+			_, err = tryExec(fmt.Sprintf("mkfs.ext4 -F %s", volumeLinuxDevice))
 			if err != nil {
-				return err
+				return errors.New("Volume Mkfs Failed")
 			}
 
 			_, err = tryExec(fmt.Sprintf("mount -o discard,defaults %s /ham-build", volumeLinuxDevice))
 
 			if err != nil {
-				return err
+				return errors.New("Volume Mount Failed")
 			}
 
 		}

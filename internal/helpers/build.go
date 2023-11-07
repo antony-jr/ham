@@ -135,6 +135,26 @@ func DeleteServer(sclient *hcloud.ServerClient, serverName string) error {
 	return errors.New("Server Not Found")
 }
 
+func GetVolumeLinuxDeviceForServer(client *hcloud.Client, serverName string) (string, error) {
+	volName := fmt.Sprintf("%s-vol", serverName)
+	vols, err := client.Volume.All(
+		context.Background(),
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	for _, volume := range vols {
+		if volume.Name == volName {
+			return volume.LinuxDevice, nil
+		}
+	}
+
+	return "", errors.New("No Such Volume")
+
+}
+
 func DeleteVolume(vclient *hcloud.VolumeClient, serverName string) error {
 	volName := fmt.Sprintf("%s-vol", serverName)
 	vols, err := vclient.All(
