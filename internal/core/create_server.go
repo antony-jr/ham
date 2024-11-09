@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 // Change this if needed in the future when

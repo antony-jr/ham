@@ -62,7 +62,7 @@ func NewTerminal(UniqueID string) (Terminal, error) {
 
 				if size >= 1024*1024*5 {
 					size = 0
-				   	logFile.Close()
+					logFile.Close()
 					os.Remove(filePath)
 					logFile, err = os.Create(filePath)
 				}

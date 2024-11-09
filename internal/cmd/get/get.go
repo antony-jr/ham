@@ -19,7 +19,7 @@ import (
 	"github.com/antony-jr/ham/internal/banner"
 	"github.com/antony-jr/ham/internal/core"
 	"github.com/antony-jr/ham/internal/helpers"
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 const (
@@ -407,7 +407,7 @@ Local Recipe:
 					_ = tuiSpinnerMsg.StopMessage()
 					fmt.Printf(" %s Created Server\n", checkMark)
 				}
-				
+
 				volDevice, err := helpers.GetVolumeLinuxDeviceForServer(client, serverName)
 				if err != nil {
 					return err
@@ -788,6 +788,7 @@ func doInitialize(ipAddr string,
 		for {
 			tries++
 			if err != nil {
+				fmt.Println("Retrying Exec Error: ", err.Error())
 				if tries > 20 {
 					return "", err
 				}

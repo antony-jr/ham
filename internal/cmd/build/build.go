@@ -13,7 +13,7 @@ import (
 	"github.com/antony-jr/ham/internal/core"
 	"github.com/antony-jr/ham/internal/helpers"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 
 	"github.com/mkideal/cli"
 	"github.com/sevlyar/go-daemon"

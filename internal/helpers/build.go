@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 // Short SHA256 Sum is used since sha256 sum is simply too
@@ -87,6 +87,7 @@ func TryDeleteServer(client *hcloud.Client, serverName string, maxTries int, int
 				if err == nil {
 					break
 				}
+				fmt.Println("Volume Destroy Error: ", err.Error())
 
 				tries++
 				fmt.Println("Destroying Volume Failed. Retrying... ")

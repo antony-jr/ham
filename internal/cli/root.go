@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/antony-jr/ham/internal/cmd/clean"
+	"github.com/antony-jr/ham/internal/cmd/genkey"
 	"github.com/antony-jr/ham/internal/cmd/get"
 	"github.com/antony-jr/ham/internal/cmd/initialize"
-	"github.com/antony-jr/ham/internal/cmd/genkey"
 )
 
 type rootT struct {

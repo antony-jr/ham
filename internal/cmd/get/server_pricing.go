@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 func GrossServerPriceForServerWithHighestPerformance(client *hcloud.Client) (float64, *hcloud.ServerType, error) {
