@@ -12,7 +12,7 @@ import (
 // Hetzner deprecates Ubuntu 20.04 LTS, or if it
 // is that time of the year.
 const (
-	TargetImage = "ubuntu-20.04"
+	TargetImage = "ubuntu-24.04"
 
 	// Most Stable, Reliable and Cheapest
 	// Location by Hetzner
